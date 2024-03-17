@@ -1,4 +1,4 @@
-# Ubuntu18.04配置静态IP
+# Ubuntu22.04配置静态IP
 
 
 ubuntu从17.10开始，已放弃在/etc/network/interfaces里固定IP的配置，即使配置也不会生效，而是改成netplan方式 ，网卡配置文件路径在：/etc/netplan/文件下，一般后缀名为.yaml文件
