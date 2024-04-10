@@ -675,8 +675,126 @@ int main(int argc, char *argv[]) {
     一个 CQE pair 的两个 member 都处理完成之后（index==2），释放共享的 data descriptor。 最后通知内核这个 CQE 已经被消费。
 
 
-### 4 io_uring 性能压测（基于 fio）
+## 4 io_uring 性能压测（基于 fio）
 
 对于已经在使用 linux-aio 的应用，例如 ScyllaDB， 不要期望换成 io_uring 之后能获得大幅的性能提升，这是因为： io_uring 性能相关的底层机制与 linux-aio 并无本质不同（都是异步提交，轮询结果）。
 
 在此，本文也希望使读者明白：io_uring 首先和最重要的贡献在于： 将 linux-aio 的所有优良特性带给了普罗大众（而非局限于数据库这样的细分领域）。
+
+
+### 4.1 测试环境
+
+本节使用 fio 测试 4 种模式：
+
+- synchronous reads
+- posix-aio (implemented as a thread pool)
+- linux-aio
+- io_uring
+
+硬件：
+- NVMe 存储设备，物理极限能打到 3.5M IOPS。
+- 8 核处理器
+
+
+### 4.2 场景一：direct I/O 1KB 随机读（绕过 page cache）
+
+第一组测试中，我们希望所有的读请求都能命中存储设备（all reads to hit the storage），完全绕开操作系统的页缓存（page cache）。
+
+测试配置：
+
+- 8 个 CPU 执行 72 fio job，
+- 每个 job 随机读取 4 个文件，
+- iodepth=8（number of I/O units to keep in flight against the file.）。
+
+这种配置保证了 CPU 处于饱和状态，便于观察 I/O 性能。 如果 CPU 数量足够多，那每组测试都可能会打满设备带宽，结果对 I/O 压测就没意义了。
+
+![direct-io](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/new_features/image/io_uring/direct_io.png)
+
+![direct-io](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/new_features/image/io_uring/benchmark-1.png)
+
+
+几点分析：
+
+- io_uring 相比 linux-aio 确实有一定提升，但并非革命性的。
+- 开启高级特性，例如 buffer & file registration 之后性能有进一步提升 —— 但也还 没有到为了这些性能而重写整个应用的地步，除非你是搞数据库研发，想榨取硬件的最后一分性能。
+
+- io_uring and linux-aio 都比同步 read 接口快 2 倍，而后者又比 posix-aio 快 2 倍 —— 初看有点差异。但看看上下文切换次数，就不难理解为什么 posix-aio 这么慢了。
+
+    - 同步 read 性能差是因为：在这种没有 page cache 的情况下， 每次 read 系统调用都会阻塞，因此就会涉及一次上下文切换。
+    - posix-aio 性能更差是因为：不仅内核和应用程序之间要频繁上下文切换，线程池的多个线程之间也在频繁切换。
+
+
+### 4.2 场景二：buffered I/O 1KB 随机读（数据提前加载到内存，100% hot cache）
+
+第二组测试 buffered I/O：
+
+- 将文件数据提前加载到内存，然后再测随机读。
+
+    - 由于数据全部在 page cache，因此同步 read 永远不会阻塞。
+    - 这种场景下，我们预期同步读和 io_uring 的性能差距不大（都是最好的）。
+    
+- 其他测试条件不变。
+
+![hot-cache](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/new_features/image/io_uring/hot_cache.png)
+
+
+![hot-cache](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/new_features/image/io_uring/benchmark-2.png)
+
+
+结果分析：
+
+- 同步读和 io_uring 性能差距确实很小，二者都是最好的。
+
+    但注意，实际的应用不可能一直 100% 时间执行 IO 操作，因此 基于同步读的真实应用性能还是要比基于 io_uring 要差的，因为 io_uring 会将多个系统调用批处理化。
+
+- posix-aio 性能最差，直接原因是上下文切换次数太多，这也和场景相关： 在这种 CPU 饱和的情况下，它的线程池反而是累赘，会完全拖慢性能。
+
+- linux-aio 并不是针对 buffered I/O 设计的，在这种 page cache 直接返回的场景， 它的异步接口反而会造成性能损失 —— 将操作分 为 dispatch 和 consume 两步不但没有性能收益，反而有额外开销。
+
+
+### 4.3 性能测试小结
+最后再次提醒，本节是极端应用/场景（100% CPU + 100% cache miss/hit）测试， 真实应用的行为通常处于同步读和异步读之间：时而一些阻塞操作，时而一些非阻塞操作。 但不管怎么说，用了 io_uring 之后，用户就无需担心同步和异步各占多少比例了，因为它在任何场景下都表现良好。
+
+- 如果操作是非阻塞的，io_uring 不会有额外开销；
+- 如果操作是阻塞式的，也没关系，io_uring 是完全异步的，并且不依赖线程池或昂贵的上下文切换来实现这种异步能力；
+
+本文测试的都是随机读，但对其他类型的操作，io_uring 表现也是非常良好的。例如：
+
+- 打开/关闭文件
+- 设置定时器
+- 通过 network sockets 传输数据
+
+而且使用的是同一套 io_uring 接口。
+
+
+### 4.4 ScyllaDB 与 io_uring
+
+Scylla 重度依赖 direct I/O，从一开始就使用 linux-aio。 在我们转向 io_uring 的过程中，最开始测试显示对某些 workloads，能取得 50% 以上的性能提升。 但深入研究之后发现，这是因为我们之前的 linux-aio 用的不够好。 这也揭示了一个经常被忽视的事实：获得高性能没有那么难（前提是你得弄对了）。 在对比 io_uring 和 linux-aio 应用之后，我们很快改进了一版，二者的性能差距就消失了。 但坦率地说，解决这个问题需要一些工作量，因为要改动一个已经使用 了很多年的基于 linux-aio 的接口。而对 io_uring 应用来说，做类似的改动是轻而 易举的。
+
+以上只是一个场景，io_uring 相比 linux-aio 的优势是能应用于 file I/O 之外的场景。 此外，它还自带了特殊的 高性能 接口，例如 buffer registration、file registration、轮询模式等等。
+
+启用 io_uring 高级特性之后，我们看到性能确实有提升：Intel Optane 设备，单个 CPU 读取 512 字节，观察到 5% 的性能提升。与 表 1 & 2 对得上。虽然 5% 的提升 看上去不是太大，但对于希望压榨出硬件所有性能的数据库来说，还是非常宝贵的。
+
+![io-uring-cmp](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/new_features/image/io_uring/io_uring_cmp.png)
+
+
+## 5. eBPF
+eBPF 也是一个事件驱动框架（因此也是异步的），允许用户空间程序动态向内核注入字节码，主要有两个使用场景：
+
+- Networking：[本站](https://arthurchiao.art/) 已经有相当多的文章
+- Tracing & Observability：例如 bcc 等工具
+
+
+eBPF 在内核 4.9 首次引入，4.19 以后功能已经很强大。更多关于 eBPF 的演进信息，可参考： （译）大规模微服务利器：eBPF + Kubernetes（KubeCon, 2020）。
+
+谈到与 io_uring 的结合，就是用 bcc 之类的工具跟踪一些 I/O 相关的内核函数，例如：
+
+* Trace how much time an application spends sleeping, and what led to those sleeps. (wakeuptime)
+* Find all programs in the system that reached a particular place in the code (trace)
+* Analyze network TCP throughput aggregated by subnet (tcpsubnet)
+* Measure how much time the kernel spent processing softirqs (softirqs)
+* Capture information about all short-lived files, where they come from, and for how long they were opened (filelife)
+
+
+## 6. 结束语
+io_uring 和 eBPF 这两大特性将给 Linux 编程带来革命性的变化。 有了这两个特性的加持，开发者就能更充分地利用 [Amazon i3en meganode systems](https://www.scylladb.com/2019/05/28/aws-new-i3en-meganode)之类的多核/多处理器系统，以及[Intel Optane 持久存储](https://www.scylladb.com/2017/09/27/intel-optane-scylla-providing-speed-memory-database-persistency)之类的 us 级延迟存储设备。
