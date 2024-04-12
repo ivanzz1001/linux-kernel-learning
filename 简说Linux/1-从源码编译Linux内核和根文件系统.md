@@ -239,7 +239,7 @@ Device Drivers  --->
 
 
 题外话，menuconfig的大体菜单样式如下，这里我们简单看一下：
-`
+```
 # make menuconfig
 [*] 64-bit kernel
 	General setup  --->
@@ -258,7 +258,7 @@ Device Drivers  --->
 -*- Cryptographic API  --->
 [*] Virtualization  ---> 
 	Library routines  --->
-`
+```
 
 ## 4. 编译
 这里直接执行make命令编译即可，编译成功后的内核位于：arch/x86_64/boot/bzImage 
