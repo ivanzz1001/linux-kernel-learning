@@ -9,6 +9,7 @@ ubuntu从17.10开始，已放弃在/etc/network/interfaces里固定IP的配置�
 ### 1. 找出当前网关
 
 <pre>
+# apt install net-tools
 # route -n
 Kernel IP routing table
 Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
