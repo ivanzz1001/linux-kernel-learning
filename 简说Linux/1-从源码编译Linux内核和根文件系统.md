@@ -262,17 +262,17 @@ Device Drivers  --->
 
 ## 4. 编译
 这里直接执行make命令编译即可，编译成功后的内核位于：arch/x86_64/boot/bzImage 
-``
-# make 
-# ls -ahl arch/x86_64/boot/ 
+`
+$ make 
+$ ls -ahl arch/x86_64/boot/ 
 total 8.0K
 drwxr-xr-x 2 root root 4.0K  3月 24 21:25 .
 drwxr-xr-x 3 root root 4.0K  3月 24 21:25 ..
 lrwxrwxrwx 1 root root   22  3月 24 21:25 bzImage -> ../../x86/boot/bzImage
 
-# ls -alh arch/x86/boot/bzImage 
+$ ls -alh arch/x86/boot/bzImage 
 -rw-r--r-- 1 root root 6.6M  3月 24 21:25 arch/x86/boot/bzImage
-``
+`
 
 
 
