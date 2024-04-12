@@ -258,7 +258,7 @@ Device Drivers  --->
 -*- Cryptographic API  --->
 [*] Virtualization  ---> 
 	Library routines  --->
-
+`
 
 ## 4. 编译
 这里直接执行make命令编译即可，编译成功后的内核位于：arch/x86_64/boot/bzImage 
