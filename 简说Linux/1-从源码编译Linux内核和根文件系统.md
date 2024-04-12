@@ -221,7 +221,7 @@ Configuration targets:
 
 >ps: 在执行menuconfig的时候，根目录下的Makefile文件如果发现有`.config`文件(参看KCONFIG_CONFIG变量设置)，那么就会加载该配置文件，此时就相当于对第2步的菜单进行微调
 
-`
+```
 General setup  --->
       ----> [*] Initial RAM filesystem and RAM disk (initramfs/initrd) support
 
@@ -229,7 +229,7 @@ Device Drivers  --->
     [*] Block devices  --->
             <*>   RAM block device support
             (65536) Default RAM disk size (kbytes) 
-`
+```
 按上述修改之后记得保存。
 
 >ps: 关于RAM filesystem的作用，参看
