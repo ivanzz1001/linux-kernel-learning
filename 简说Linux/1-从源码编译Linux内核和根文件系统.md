@@ -83,6 +83,7 @@ CREDITS  fs             Kconfig  mm           scripts         virt
 
 这里根据自己编译过程中遇到的相关问题可能需要预先安装如下包或工具:
 <pre>
+# apt install build-essential
 # apt install make
 # apt install libncurses5-dev  
 </pre>
