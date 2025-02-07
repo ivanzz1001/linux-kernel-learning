@@ -17,7 +17,7 @@ Linux官网：https://www.kernel.org/
 ## 2. 下载长期维护版本版本
 
 尽量去下载这种带有 longterm 标注的，这种表示长期维护的版本
-![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-1.png)
+![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/%E9%A2%84%E5%A4%87%E7%9F%A5%E8%AF%86/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-1.png)
 
 
 ## 3. 下载指定发布版本
@@ -25,16 +25,16 @@ Linux官网：https://www.kernel.org/
 
 - 点击 https://www.kernel.org/pub/ 进入发布界面
 
-![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-2.png)
+![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/%E9%A2%84%E5%A4%87%E7%9F%A5%E8%AF%86/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-2.png)
 
 
 - 选择linux选项
 
-![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-3.png)
+![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/%E9%A2%84%E5%A4%87%E7%9F%A5%E8%AF%86/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-3.png)
 
 - 选择kernel，也就是我们想要找到的 linux源码
 
-![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-4.png)
+![kernel-download](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/%E9%A2%84%E5%A4%87%E7%9F%A5%E8%AF%86/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-download-4.png)
 
 >ps: 这里值得注意的是，我们可以从Historic文件夹下载到一些特别古老的版本，如果想研究的话可以去下载
 
@@ -44,7 +44,7 @@ Linux官网：https://www.kernel.org/
 
 在Linux世界中，你可能听说过各种奇怪的内核版本号，比如4.4、5.10、5.13等等。这些版本号究竟代表着什么意思呢？本文将带你探秘Linux内核版本号的奥秘，让你了解它们的命名规则和背后的故事。
 
-![kernel-version](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-version.png)
+![kernel-version](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/%E9%A2%84%E5%A4%87%E7%9F%A5%E8%AF%86/0-%E4%B8%8B%E8%BD%BDLinux%E6%BA%90%E7%A0%81/image/kernel-version.png)
 
 ### 4.1 Linux内核版本号的命名规则
 Linux内核的版本号采用X.Y.Z的形式，其中X表示主版本号、Y表示次版本号、Z表示修订号。当内核版本更新时，不同部分的号码会有相应的增加。
