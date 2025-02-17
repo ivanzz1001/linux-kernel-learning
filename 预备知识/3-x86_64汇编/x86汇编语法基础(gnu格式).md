@@ -399,3 +399,240 @@ leaq S, D      &S → D        加载有效地址
 
 加载有效地址（load effective address）指令 leaq 实际上是 movq 指令的变形。它的指令形式是从内存读数据到寄存器，但实际上它根本没有引用内存。它的第一个操作数看上去是一个内存引用，但该指令不是从指定的位置读入数据，而是将有效地址写入到目的操作数。例如，如果寄存器 %rdx 的值为 x，那么指令`leaq 7(%rdx, %dx, 4)`, %rax将寄存器 %rax 的值为 `5x+7`。
 
+
+### 2.3 算术运算和逻辑运算指令
+
+#### 2.3.1 算术运算指令
+
+算术运算指令如下：
+
+```text
+指令                 效果                描述
+--------------------------------------------------------------------------
+inc{bwlq} D          D+1 → D            加 1
+dec{bwlq} D          D-1 → D            减 1
+neg{bwlq} D          -D → D             取负
+add{bwlq} S, D       D + S → D          加
+sub{bwlq} S, D       D - S → D          减
+imul{bwlq} S, D      D * S → D          乘
+```
+
+#### 2.3.2 逻辑运算指令
+
+参看：`325462-sdm-vol-1-2abcd-3abcd-4-1.pdf#Page 120`
+
+逻辑运算指令如下：
+
+```text
+指令               效果                 描述	
+-----------------------------------------------------
+not{bwlq} D        ~D → D              逻辑非	
+or{bwlq} S, D      D | S → D           逻辑或
+and{bwlq} S, D	   D & S → D           逻辑与	
+xor{bwlq} S, D	   D ^ S → D           逻辑异或	
+```
+
+#### 2.3.3 移位运算
+
+```text
+指令                  效果                 描述
+----------------------------------------------------
+sal{bwlq} k, D	      D << k → D          算术左移
+shl{bwlq} k, D	      D << k → D          逻辑左移（等同于asl）
+sar{bwlq} k, D        D >>_A k → D        算术右移
+shr{bwlq} k, D        D >>_L k → D        逻辑右移
+```
+
+说明：
+
+- 算术右移‌：保留符号位，并将其他位向右移动。如果符号位为1，则在左边补1；如果符号位为0，则在左边补0
+
+- 逻辑右移‌：不保留符号位，将其他位向右移动，并在左边补0
+
+- 算术左移‌：在算术左移操作中，所有位也向左移动，最右边的位被丢弃，最左边空出的位置用0填充。但与逻辑左移不同的是，算术左移保留了数的符号位（即最高位），适用于有符号整数。这意味着对于有符号整数，算术左移能够保持数的符号不变‌
+
+- 逻辑左移‌：在逻辑左移操作中，所有位都向左移动，最右边的位被丢弃，最左边空出的位置用0填充。这种操作不考虑数据的符号位，适用于无符号整数‌
+
+
+移位操作第一个操作数是移位量，第二个操作数是要移位的数。可以进行算术和逻辑移位。移位量可以是一个8位立即数，或者放在单字节寄存器`%cl`中（这些指令很特别，因为只允许以这个特定的寄存器作为操作数）。原则上来说，1个字节的移位量使得移位量的编码范围可以达到2^8 - 1 = 255。x86-64中，移位操作对 `w位长`的数据值进行操作，移位量是由`%cl`寄存器的低m位决定的，这里2^m = w，高位会被忽略。所以，例如当寄存器`%cl`的十六进制值为 0xFF 时，指令 salb 会移 7 位，salw 会移 15 位， sall 会移 31 位， 而 salq 会移 63 位。
+
+左移指令有两个名字：sal 和 shl。两者的效果是一样的，都是将右边填上0.右移指令不同，sar 执行算术移位（填上符号位），而 shr 执行逻辑移位（填上0）。移位操作的目的操作数可以是一个寄存器或者是一个内存位置。
+
+代码示例：
+
+```text
+salq $4, %rax      # 把 %rax里的数据左移4位（乘以16），即 %rax = %rax * 16
+```
+
+#### 2.3.4 特殊的算术操作
+
+imul指令有两种不同的形式。其中一种，如 2.3.1 节所示，有两个操作数，这种形式的imul指令是一个“双操作数”乘法指令。但是，x86-64还提供了两条不同的“单操作数”乘法指令。根据操作数大小，这类指令把源操作数与 %rax 对应大小的寄存器内容相乘，结果放入 %rax 对应的寄存器中。而imulq指令，由于两个64位数相乘，结果可能为128位，所以使用了%rdx寄存器来保存运算结果的高64位，%rax保存运算结果的低64位。
+另外，x86-64提供的除法指令，也是单操作数的。这类操作，根据操作数大小，以 %rdx 对应的寄存器保存余数， %rax对应的寄存器保存商。其中 idivb 和 idiv是个例外，它们的余数保存在 %ah 寄存器，商保存在 %al寄存器
+
+```text
+指令          效果                                                               描述
+---------------------------------------------------------------------------------------------
+imulb S       S × R[%al] → R[%ax]                                               8位有符号乘法
+imulw S       S × R[%ax] → R[%eax]                                              16位有符号乘法
+imull S       S × R[%eax] → R[%rax]                                             32位有符号乘法
+imulq S       S × R[%rax] → R[%rdx]: R[%rax]                                    64位有符号乘法
+mulb S        S × R[%al] → R[%ax]                                               8位无符号乘法
+mulw S        S × R[%ax] → R[%eax]                                              16位无符号乘法
+mull S        S × R[%eax] → R[%rax]                                             32位无符号乘法
+mulq S        S × R[%rax] → R[%rdx]: R[%rax]                                    64位无符号乘法
+idivb S       R[%ax] mod S → R[%ah] R[%ax] ÷ S → R[%al]                         8位有符号除法
+idivw S       R[%dx]: R[%ax] mod S → R[%dx] R[%dx]: R[%ax] ÷ S → R[%ax]         16位有符号除法
+idivl S       R[%edx]: R[%eax] mod S → R[%edx] R[%edx]: R[%eax] ÷ S → R[%eax]   32位有符号除法
+idivq S       R[%rdx]: R[%rax] mod S → R[%rdx] R[%rdx]: R[%rax] ÷ S → R[%rax]   64位有符号除法
+divb S        R[%ax] mod S → R[%ah] R[%ax] ÷ S → R[%al]                         8位无符号除法
+divw S        R[%dx]: R[%ax] mod S → R[%dx] R[%dx]: R[%ax] ÷ S → R[%ax]         16位无符号除法
+divl S        R[%edx]: R[%eax] mod S → R[%edx] R[%edx]: R[%eax] ÷ S → R[%eax]   32位无符号除法
+divq S        R[%rdx]: R[%rax] mod S → R[%rdx] R[%rdx]: R[%rax] ÷ S → R[%rax]   64位无符号除法
+```
+
+### 2.4 控制指令
+
+#### 2.4.1 条件码
+
+除了整数寄存器（通用寄存器）外，CPU还维护着一组单个位的条件码寄存器（EFLAGS），它们描述了最近的算术或逻辑运算操作的属性。条件码的详细描述详见 1.2 节，这里我们列出最常用的条件码：
+
+- CF：进位标志。最近的操作使最高位产生了进位或借位，用来检查无符号操作的溢出。
+
+- ZF：零标志。最近的操作得出的结果是 0。
+
+- SF：符号标志。最近的操作的得到的结果是否为负数。
+
+- OF：溢出标志。最近的操作导致一个补码溢出，用来检查有符号溢出。
+
+比如说，假设我们用一条 ADD 指令完成等价于 C 表达式 t = a + b 的功能，这里变量 a、b 和 t 都是整型的。然后，根据下面的C表达式来设置条件码：
+
+```text
+CF  （unsigned）t < (unsigned)a       # 无符号溢出
+ZF  （t == 0)                         # 零
+SF  （t < 0）                         # 负数
+OF   (a<0 == b<0) && (t<0 != a<0)     # 有符号溢出
+```
+
+2.3 节列出的所有指令都会设置条件码。对应逻辑操作，如 XOR，进位标志和溢出标志会设置成0。对于移位操作，进位标志将设置为最后一个被移出的位，而溢出标志设置为0。INC 和 DEC 指令会设置溢出和零标志，但是不会改变进位标志。
+条件码通常不会直接读取，常用的使用方法有三种：
+
+- 可以根据条件码的某种组合，将一个字节设置为 0 或者 1；
+
+- 可以条件跳转到程序的某个地方
+
+- 可以有条件的传送数据
+
+#### 2.4.2 CMP和TEST指令
+
+参看：`325462-sdm-vol-1-2abcd-3abcd-4-1.pdf#Page 120`
+
+除了 2.3 节列出的指令会设置条件码，还有两类指令（ CMP 和 TEST），它们只设置条件码而不改变任何其他寄存器。CMP 指令根据两个操作数之差来设置条件码。除了只设置条件码而不更新目的寄存器之外，CMP 指令与 SUB 指令的行为是一样的。如果两个操作数相等，这些指令会将零标志设置为1，而其他标志可以用来确定两个操作数之间的大小关系。 TEST 指令的行为与 AND 指令一样，除了它们只设置条件码而不改变目的寄存器。
+
+```text
+指令             基于                描述
+----------------------------------------------------
+CMP S1, S2	     S2 - S1	           比较
+cmpb		                             比较字节
+cmpw		                             比较字
+cmpl		                             比较双字
+cmpq		                             比较四字
+
+TEST S1, S2	     S1 & S2	           测试
+testb		                             测试字节
+testw		                             测试字
+testl		                             测试双字
+testq		                             测试四字
+```
+
+
+#### 2.4.3 SET指令
+SET 指令根据条件码的某种组合，将一个字节设置为 0 或者 1。SET 指令是一组指令，指令的后缀表明了他们所考虑的条件码组合。例如：指令 setl 和 setb 表示 “小于时设置（set less）”和“低于时设置（set blow）”。SET 指令的目的操作数是低位单字节寄存器或是一个字节的内存地址，指令会将这个字节设置成 0 或者 1。
+
+```text
+Instruction            Description                         Condition Code              Page #
+-------------------------------------------------------------------------------------------
+sete / setz   D         Set if equal/zero                  ZF                           187
+setne / setnz D         Set if not equal/nonzero           ~ ZF                         187
+sets          D         Set if negative                    SF                           187
+setns         D         Set if nonnegative                 ~ SF                         187
+setg / setnle D         Set if greater (signed)            ~ (SF ^ 0F)& ~ ZF            187
+setge / setnl D         Set if greater or equal (signed)   ~ (SF ^ 0F)                  187
+setl / setnge D         Set if less (signed)               SF^0F                        187
+setle / setng D         Set if less or equal               (SF ^ OF)|ZF                 187
+seta / setnbe D         Set if above (unsigned)            ~ CF& ~ ZF                   187
+setae / setnb D         Set if above or equal (unsigned)   ~ CF                         187
+setb / setnae D         Set if below (unsigned)            CF                           187
+setbe / setna D         Set if below or equal (unsigned)   CF|ZF                        187
+```
+
+#### 2.4.4 跳转指令
+
+跳转指令分为无条件跳转和有条件跳转。
+
+1. **无条件跳转**
+
+    如下是无条件跳转指令:
+
+    ```text
+    Instruction         Description               Condition Code        Page #
+    --------------------------------------------------------------------------
+    jmp Label           Jump to label                                   189
+    jmp *Operand        Jump to specified location                      189
+    ```
+
+    `示例`:
+    ```text
+    ## 直接跳转示例 
+      movq $0, %rax
+      jmp .L1                 # 直接跳转
+      movq (%rax), %rdx
+   .L1:
+    popq %rdx
+    
+    ## 间接跳转示例 
+    jmp *%rax                 # 用寄存器 %rax 中的值作为跳转目的
+    jmp *(%rax)               # 以 %rax中的值作为读取地址，从内存中读出跳转目标
+    ```
+
+
+1. **有条件跳转**
+
+    下表中所示的跳转指令都是有条件的，它们根据条件码的某种组合，要么跳转，要么不跳转继续执行一条指令。条件跳转只能是直接跳转。
+
+    ```text
+    Instruction               Description                         Condition Code      Page #
+    ----------------------------------------------------------------------------------------- 
+    je / jz   Label          Jump if equal/zero                   ZF                  189
+    jne / jnz Label          Jump if not equal/nonzero            ~ ZF                189
+    js        Label          Jump if negative                     SF                  189
+    jns       Label          Jump if nonnegative                  ~ SF                189
+    jg / jnle Label          Jump if greater (signed)             ~ (SF ^ 0F)& ~ ZF   189
+    jge / jnl Label          Jump if greater or equal (signed)    ~ (SF ^ 0F)         189
+    jl / jnge Label          Jump if less (signed)                SF^0F               189
+    jle / jng Label          Jump if less or equal                (SF ^ OF)|ZF        189
+    ja / jnbe Label          Jump if above (unsigned)             ~ CF& ~ ZF          189
+    jae / jnb Label          Jump if above or equal (unsigned)    ~ CF                189
+    jb / jnae Label          Jump if below (unsigned)             CF                  189
+    jbe / jna Label          Jump if below or equal (unsigned)    CF|ZF               189
+    ```
+
+#### 2.4.5 条件传送指令
+
+```text
+Instruction               Description                   Condition Code              Page #
+-------------------------------------------------------------------------------------------
+cmove / cmovz   S, D      Move if equal/zero                  ZF                    206
+cmovne / cmovnz S, D      Move if not equal/nonzero           ~ ZF                  206
+cmovs           S, D      Move if negative                    SF                    206
+cmovns          S, D      Move if nonnegative                 ~ SF                  206
+cmovg / cmovnle S, D      Move if greater (signed)            ~ (SF ^ 0F)& ~ ZF     206
+cmovge / cmovnl S, D      Move if greater or equal (signed)   ~ (SF ^ 0F)           206
+cmovl / cmovnge S, D      Move if less (signed)               SF^0F                 206
+cmovle / cmovng S, D      Move if less or equal               (SF ^ OF)|ZF          206
+cmova / cmovnbe S, D      Move if above (unsigned)            ~ CF& ~ ZF            206
+cmovae / cmovnb S, D      Move if above or equal (unsigned)   ~ CF                  206
+cmovb / cmovnae S, D      Move if below (unsigned)            CF                    206
+cmovbe / cmovna S, D      Move if below or equal (unsigned)   CF|ZF                 206
+```
+
+### 2.5 过程调用
