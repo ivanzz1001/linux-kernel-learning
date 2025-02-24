@@ -636,3 +636,157 @@ cmovbe / cmovna S, D      Move if below or equal (unsigned)   CF|ZF             
 ```
 
 ### 2.5 过程调用
+
+x86-64的过程实现包括一组特殊的指令和一些对机器资源（例如寄存器和程序内存）使用规则的约定。
+
+#### 2.5.1 运行时栈
+
+x86-64的栈向低地址方向增长，而栈指针 `%rsp` 指向栈顶元素。可以用 push 和 pop 相关指令将数据存入栈中或是从栈中取出数据。将栈指针减小一个适当的量可以为数据在栈上分配空间；类似的，可以通过增加栈指针来释放空间。
+
+当过程P调用过程Q时，其栈内结构如下图所示：
+
+![segment-model](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/%E9%A2%84%E5%A4%87%E7%9F%A5%E8%AF%86/3-x86_64%E6%B1%87%E7%BC%96/image/call-stack.awebp)
+
+当前正在执行的过程的栈帧总是在栈顶。当 过程 P 调用过程 Q 时，会把返回地址压入栈中，指明当 Q 返回时，要从 P 程序的哪个位置继续执行。Q 的代码会扩展到当前栈的边界，分配它所需要的栈帧空间。在这个空间中，它可以保存寄存器的值，分配局部变量空间，为它调用的过程设置参数。通过寄存器，过程 P 可以传递最多 6 个整数值（包括指针和整数），如果 Q 需要更多参数时，P 可以在调用 Q 之前在自己的栈帧里存储好这些参数。
+
+
+#### 2.5.2 过程调用惯例
+
+1. **参数传递**
+
+x86-64中，最多允许 6 个参数通过寄存器来传递，多出的参数需要通过栈来传递，正如 2.5.1 节描述的那样；传递参数时，参数的顺序与寄存器的关系对应如下：
+
+```text
+操作数大小(位)    参数1    参数2    参数3    参数4    参数5    参数6
+------------------------------------------------------------------------------
+64               %rdi     %rsi     %rdx    %rcx     %r8      %r9
+32               %edi	    %esi     %edx    %ecx     %r8d     %r9d
+16               %di      %si      %dx     %cx      %r8w     %r9w
+8                %dil     %sil     %dl     %cl      %r8b     %r9b
+```
+如果一个函数 Q 有 n （n > 6）个整数参数，如果过程 P 调用过程 Q，需要把参数 1 ~ 6复制到对应的寄存器，把参数 7 ~ n放到栈上，而参数 7 位于栈顶。通过栈传递参数时，所有的数据大小都向 8 的倍数对齐。参数到位以后，程序就可以指向 call 指令将控制转移到 Q 了。
+
+1. **返回值**
+
+被调用函数返回时，把返回结果放入 %rax中，供调用函数来获取。
+
+1. **寄存器的其他约定**
+
+根据惯例，寄存器的 %rbx、%rbp和 %r12~%r15被划分位被调用者保存寄存器。当过程 P 调用过程 Q 时，Q 必须保证这些寄存器的值在被调用前和返回时是一致的。也就是说， Q 要么不去使用它，要么先把寄存器原始值压入栈，在使用完成后，返回到 P 之前再把这些寄存器的值从栈中恢复。
+
+所有其它寄存器，除了栈指针 %rsp，都分类为调用者保存寄存器。这就意味着任何函数都能修改它们。可以这样来理解“调用者保存”这个名字：过程 P 在某个此类寄存器中存有数据，然后调用过程 Q。因为 Q 可以随意修改这个寄存器，所以在调用之前首先保存好这个数据时 P （调用者）的责任。
+
+
+#### 2.5.3 控制转移
+
+过程调用时，通过以下指令来进行调用及返回：
+
+```text
+Instruction                 Description                                            Page #
+-------------------------------------------------------------------------------------------
+call Label                  Push return address and jump to label                  221
+call *Operand               Push return address and jump to specified location     221
+leave                       Set %rsp to %rbp , then pop top of stack into %rbp     221
+ret                         Pop return address from stack and jump there           221
+```
+
+call 指令有一个目标，即指明被调用过程起始的指令地址。同跳转指令一样，调用可以是直接的，也可以是间接的。
+
+当 call 指令执行时，调用者 P 已经按 2.5.2 的约定，把被调用者 Q 所需要的参数准备好了。该指令执行时，会把返回地址 A 压入栈中，并将PC （%rip）设置为 Q 的起始地址。对应的，ret 指令会从栈中弹出返回地址 A，并把PC（%rip）设置为 A，程序从 A 处继续执行。
+
+### 2.6 字符串指令
+
+字符串指令用于对字符串进行操作，这些操作包括在把字符串存入内存、从内存中加载字符串、比较字符串以及扫描字符串以查找子字符串。
+
+#### 2.6.1 movs、cmps类指令
+
+movs 指令用于把字符串从内存中的一个位置拷贝到另一个位置。cmps 指令用于字符串比较。
+
+在老的运行模式中，这些指令把字符串从 %ds: %(e)si 表示的内存地址拷贝到 %es: %(e)di 表示的内存地址。在64位模式中，这些指令把字符串从 %(r|e)si 表示的内存地址处拷贝到 %(r|e)di 表示的内存地址处。
+
+当操作完成后， %(r|e)si 和 %(r|e)di 寄存器的值会根据 DF 标志位的值自动增加或减少。当 DF 位为 0 时，%(r|e)si 和 %(r|e)di 寄存器的值会增加，当 DF 为 1 时，寄存器的值会减少。根据移动的字符串是字节、字、双字、四字，寄存器会分别减少或增加1、2、4、8。
+
+1. **movs指令**
+
+```text
+指令                 描述
+-------------------------------------------------------------------
+movsb               move byte string
+movsw	              move word string
+movsl	              move doubleword string
+movsq	              move qword string
+```
+
+1. **cmps指令**
+
+```text
+指令                 描述
+-------------------------------------------------------------------
+cmpsb	               compare byte string
+cmpsw	               compare word string
+cmpsl	               compare doubleword string
+cmpsq	               compare qword string
+```
+
+#### 2.6.2 lods指令
+
+lods 指令把源操作数加载到 %al，%ax，%eax 或 %rax 寄存器，源操作数是一个内存地址。在老的模式下，这个地址会从 %ds:%esi 或者 %ds:%si读取（根据操作数地址属性是32还是16来决定使用不同的寄存器）；在64位模式下内存地址从寄存器 %(r)si 处读取。
+
+在数据加载完成后，%(r|e)si 寄存器会根据 DF 标志位自动增加或减少（如果 DF 为0，%(r|e)si 寄存器会增加；如果DF 为 1，%(r|e)si 寄存器会减少 ）。根据移动的字符串是字节、字、双字、四字，寄存器会分别减少或增加1、2、4、8。
+
+```text
+指令         描述                     说明
+----------------------------------------------------------------------------------------
+lodsb       load byte string          For legacy mode, Load byte at address DS:(E)SI into AL. For 64-bit mode load byte at address (R)SI into AL.
+lodsw       load word string          For legacy mode, Load word at address DS:(E)SI into AX. For 64-bit mode load word at address (R)SI into AX.
+lodsl       load doubleword string    For legacy mode, Load dword at address DS:(E)SI into EAX. For 64-bit mode load dword at address (R)SI into EAX.
+lodsq       load qword string         Load qword at address (R)SI into RAX.
+```
+
+#### 2.6.3 stos指令
+
+stos 指令把 %al，%ax，%eax 或 %rax 寄存器里的字节、字、双字、四字数据，保存到目的操作数，目的操作数是一个内存地址。在老的模式下，这个地址会从 %ds:%esi 或者 %ds:%si读取（根据操作数地址属性是32还是16来决定使用不同的寄存器）；在64位模式下内存地址从寄存器 %rdi 或 %edi 处读取。
+
+在数据加载完成后，%(r|e)di 寄存器会根据 DF 标志位自动增加或减少（如果 DF 为0，寄存器会增加；如果DF 为 1， 寄存器会减少 ）。根据移动的字符串是字节、字、双字、四字，寄存器会分别减少或增加1、2、4、8。
+
+```text
+指令         描述                       说明
+----------------------------------------------------------------------------------------
+stosb       store byte string          For legacy mode, store AL at address ES:(E)DI; For 64-bit mode store AL at address RDI or EDI.
+stosw       store word string          For legacy mode, store AX at address ES:(E)DI; For 64-bit mode store AX at address RDI or EDI.
+stosl       store dowble word string   For legacy mode, store EAX at address ES:(E)DI; For 64-bit mode store EAX at address RDI or EDI.
+stosq       store qword string         Store RAX at address RDI or EDI.
+```
+
+#### 2.6.4 REP相关指令
+上面几节提到的字符串相关指令，都是单次执行的指令。可以在这些指令前面添加 rep 类前缀，让指令重复执行。重复执行的次数通过计数寄存器`%(r|e)cx`来指定，或者根据ZF 标志位是否满足条件进行判断。
+
+rep 类前缀包括：
+
+- rep(repeat)
+
+- repe(repeat while qeual)
+
+- repne(repeat while not qeual)
+
+- repz(repeat while zero) 
+
+- repnz(repeat while not zero)。 
+
+rep 前缀可以放置在 ins，outs，movs，lods和stos指令前面；而repe、repne、repz和repnz前缀可以放置在 cmps 和 scas指令前面。
+
+repe、repne、repz和repnz 前缀指令在每一次迭代执行后，会检查 ZF 标志是否满足中止条件，如果满足则中止循环。
+
+
+**终止条件**
+
+```text
+前缀格式        中止条件1                中止条件2
+-----------------------------------------------   
+rep	           %rcx 或 %(e)cx = 0	      无
+repe/repz	     %rcx 或 %(e)cx = 0	      ZF = 0
+repne/repnz	   %rcx 或 %(e)cx = 0	      ZF = 1
+```
+
+## 3. 汇编器指令
+
