@@ -65,11 +65,60 @@
   
    - Intel: `section:[base + index*scale + disp]`
   
-   我们需要记住的其中一个点是：当disp/scale为常数时，不能使用`$`前缀。
+   我们需要记住的其中一个点是：当disp/scale为常数时，不能使用`$`前缀。下面我们再详细介绍一下AT&T内存引用语法各个部分的含义：
 
-   下面我们再详细介绍一下AT&T内存引用语法各个部分的含义：
+   ```text
+    segment:offset(base, index, scale) 
+    ```
 
-  
+    其中:
 
+      - segment: 可以是 x86 架构的任意段寄存器。segment 是可选的，如果指定的话，后面要跟上冒号来与offset隔离开； 如果未指定的话，默认为数据段寄存器`%ds`
+
+      - offset: 是一个立即数偏移量，是可选的。
+
+      - base： 表示基址寄存器，可以是16个通用寄存器中的任意一个
+
+      - index: 表示变址寄存器，可以是16个通用寄存器中的任意一个
+
+      - scale: 表示比例因子，scale会与index相乘再加上base来表示内存地址。比例因子必须是1,2,4或者8；若比例因子为指定，默认为1
+
+    有效地址被计算为：`D[segment]+offset+R[base]+R[index]*scale`，其中`D[]`表示对应段寄存器的数据; `R[]`表示通用寄存器里的数。我们用`M[addr]`来表示内存地址addr。
+
+
+    内存地址操作示例：
+
+    ```text
+    指令                              说明
+    ----------------------------------------------------------------------
+    movl var, %eax                   把内存地址M[var]处的数据传送到eax寄存器
+    movl %cs:var, %eax               把代码段偏移量为var处的内存数据传送到eax寄存器
+    movl $var, %eax                  把立即数var传送到eax寄存器
+    movl var(%esi), %eax             把内存地址 M[R[%esi] + var] 处的数据传送到eax寄存器
+    movl (%ebx, %esi, 4), %eax       把内存地址 M[R[%ebx] + R[%esi]*4] 处的数据传送到eax寄存器
+    movl var(%ebx, %esi, 4), %eax    把内存地址 M[var+R[%ebx] + R[%esi]*4] 处的数据传送到eax寄存器
+    ```
+
+
+# AT&T汇编与Intel汇编差异示例
+
+上面我们讲述了AT&T汇编与Intel汇编的主要差异，要想了解更详细信息，请参考GNU Assembler文档。如下我们给出一些示例以更好的理解两者之间的差异：
+
+```text
++------------------------------+------------------------------------+
+|       Intel Code             |      AT&T Code                     |
++------------------------------+------------------------------------+
+| mov     eax,1                |  movl    $1,%eax                   |   
+| mov     ebx,0ffh             |  movl    $0xff,%ebx                |   
+| int     80h                  |  int     $0x80                     |   
+| mov     ebx, eax             |  movl    %eax, %ebx                |
+| mov     eax,[ecx]            |  movl    (%ecx),%eax               |
+| mov     eax,[ebx+3]          |  movl    3(%ebx),%eax              | 
+| mov     eax,[ebx+20h]        |  movl    0x20(%ebx),%eax           |
+| add     eax,[ebx+ecx*2h]     |  addl    (%ebx,%ecx,0x2),%eax      |
+| lea     eax,[ebx+ecx]        |  leal    (%ebx,%ecx),%eax          |
+| sub     eax,[ebx+ecx*4h-20h] |  subl    -0x20(%ebx,%ecx,0x4),%eax |
++------------------------------+------------------------------------+
+```
    
     
