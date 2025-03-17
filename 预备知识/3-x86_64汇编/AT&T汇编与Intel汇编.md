@@ -7,3 +7,28 @@
 - [GCC-Inline-Assembly-HOWTO](https://www.ibiblio.org/gferg/ldp/GCC-Inline-Assembly-HOWTO.html#s4)
 
 - [Brennan's Guide to Inline Assembly](https://www.delorie.com/djgpp/doc/brennan/brennan_att_inline_djgpp.html)
+
+
+---
+
+1. **Source-Destination顺序**
+
+    AT&T语法中操作数的方向与Intel相反。Intel语法中，第一个操作数为Destination, 第二个操作数为Source； 而AT&T语法中，第一个操作数为Source，第二个操作数为Destination。比如：
+
+    - AT&T: `Op-code src dst`
+      
+    - Intel: `Op-code dst src`
+
+    
+
+1. **寄存器命名**
+
+    AT&T语法中，寄存器的名字都以`%`开头。比如要使用eax寄存器：
+
+    - AT&T: `%eax`
+  
+    - Intel: `eax`
+
+1. **立即数与常量**
+
+   
