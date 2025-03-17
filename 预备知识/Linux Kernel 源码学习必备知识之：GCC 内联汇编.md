@@ -258,30 +258,30 @@ Now, b is: 10
     为了解决这个问题, GCC 提供了操作数描述符，让我们来手动指定操作数的大小及其它功能，比较常用的操作数描述符有以下几个：
 
     ```text
-    Modifier  Description                            Operand     ‘att’
-    ------------------------------------------------------------------
-    A         Print an absolute memory reference.     %A0        *%rax
-    b         Print the QImode name of the register.  %b0        %al
+    Modifier  Description                                                   Operand        ‘att’
+    -------------------------------------------------------------------------------------------------
+    A         Print an absolute memory reference.                            %A0           *%rax
+    b         Print the QImode name of the register.                         %b0           %al
     
     d         print duplicated register operand for
-              AVX instruction.                        %d5        %xmm0
+              AVX instruction.                                               %d5           %xmm0
               
     E         Print the address in Double Integer
-              (DImode) mode (8 bytes) when the target  %E1       %(rax)
+              (DImode) mode (8 bytes) when the target                        %E1           %(rax)
               is 64-bit. Otherwise mode is unspecified
               (VOIDmode).                                     
             
     h         Print the QImode name for a “high” 
-              register.                                 %h0       %ah
+              register.                                                      %h0           %ah
               
     H         Add 8 bytes to an offsettable memory 
-              reference. Useful when accessing the      %H0       8(%rax)
+              reference. Useful when accessing the                           %H0           8(%rax)
               high 8 bytes of SSE values. For a memref
               in (%rax), it generates               
               
-    k         Print the SImode name of the register.     %k0       %eax
-    q         Print the DImode name of the register.     %q0       %rax
-    w         Print the HImode name of the register.     %w0       %ax
+    k         Print the SImode name of the register.                         %k0           %eax
+    q         Print the DImode name of the register.                         %q0           %rax
+    w         Print the HImode name of the register.                         %w0           %ax
     ```
 
     注：完整的描述符列表可以参考 GCC 官方文档 [Extended Asm:x86 operand modifiers](https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html#x86Operandmodifiers)。
