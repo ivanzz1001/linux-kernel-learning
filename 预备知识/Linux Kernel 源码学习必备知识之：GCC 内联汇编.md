@@ -569,3 +569,5 @@ void main(){
 - [GCC-Inline-Assembly-HOWTO](https://www.ibiblio.org/gferg/ldp/GCC-Inline-Assembly-HOWTO.html)
 
 - [Inline assembly](https://0xax.gitbooks.io/linux-insides/content/Theory/linux-theory-3.html)
+
+- [brennan att inline assembly](https://www.delorie.com/djgpp/doc/brennan/brennan_att_inline_djgpp.html)
