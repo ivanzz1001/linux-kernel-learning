@@ -47,4 +47,17 @@
   
      - Intel: `mov ebx, d00dh` 
 
-   
+1. **操作数大小**
+
+    AT&T语法中，内存操作数的大小由`Op-code`名称的最后一个字符决定，`Op-code`以`b`、`w`、`l`结尾分别表示byte(8-bit)、word(16-bit)、long(32-bit)长度的内存引用。Intel语法中，是通过在内存操作数(note: 非Op-code)前加上`byte ptr`、`word ptr`、`dword ptr`来指定。
+
+    >Note: 在AT&T语法中，如果省略了Op-code中最后一个标识大小的字符，GAS (GNU assembler) 会尝试进行猜测；如果我们不想让GAS来猜，或者为了避免GAS猜测错误，请不要忘记指定。
+
+    - AT&T:  `movw %ax, %bx`
+  
+    - Intel: mov bx, ax
+  
+1. **内存操作数**
+
+   Intel语法中将基址寄存器放在`[]`中，而AT&T语法中将基址寄存器放在`()`中。
+    
