@@ -391,7 +391,7 @@ input 用来指定 C 中数据如何输入给汇编使用。要想让汇编使�
 
 这个很简单，只要在 clobber/modify 部分明确写出来就行了，记得要用双引号把寄存器名称引起来，多个寄存器之间用逗号","分隔，这里的寄存器不用再加两个'%'啦，只写名称即可，如:
 
-```text
+```assembly
 asm("movl %%eax, %0; movl %%eax %%ebx"
     :"=m"(ret_value)
     :
@@ -446,7 +446,7 @@ asm("movl %%eax, %0; movl %%eax %%ebx"
 
 - **基本内联汇编**
 
-  ```text
+  ```C
   #include <stdio.h>
 
 
@@ -467,7 +467,7 @@ asm("movl %%eax, %0; movl %%eax %%ebx"
 
 - **扩展内联汇编**
 
-  ```text
+  ```C
   #include <stdio.h>
 
   void main(){
