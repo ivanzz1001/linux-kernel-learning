@@ -31,4 +31,20 @@
 
 1. **立即数与常量**
 
+   AT&T语法中，立即数与常量值以`$`开头； 对于静态"C"变量也以`$`开头。Intel语法中，对于十六进制常量以`h`结尾，而AT&T语法中十六进制常量以`0x`开头。
+
+   如下我们将静态"C"变量`booga`的地址加载到eax寄存器:
+
+    - AT&T: `movl $_booga, %eax`
+  
+       > 说明：`$_booga`表示 _booga 这个符号的地址，前面的 $ 表示取 立即数（即 _booga 的地址值，而不是 _booga 指向的内容）
+  
+    - Intel: `mov eax, _booga`
+  
+   如下我们将0xd00d加载到ebx寄存器：
+
+     - AT&T: `movl $0xd00d, %ebx`
+  
+     - Intel: `mov ebx, d00dh` 
+
    
