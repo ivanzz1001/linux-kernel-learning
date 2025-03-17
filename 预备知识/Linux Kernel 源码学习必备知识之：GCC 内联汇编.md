@@ -530,6 +530,7 @@ int main(void)
 
 - 0~9：此约束只用在 input 部分，表示该 input 操作数与 output 中第 n 个操作数用相同的寄存器或内存。
 
+---
 
 ### 3.5.2 约束修政符(constraint modifiers)
 
