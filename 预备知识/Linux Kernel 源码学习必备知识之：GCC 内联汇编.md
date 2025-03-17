@@ -410,77 +410,82 @@ asm("movl %%eax, %0; movl %%eax %%ebx"
 约束描述了操作数是否使用了寄存器，用的是哪种寄存器；是否引用了内存，用的是哪种地址；是否是立即数，是哪种类型的立即数等等。它所起的作用就是把 C 代码中的操作数（变量、立即数）映射为汇编中所使用的操作数，实际就是描述 C 中的操作数如何变成汇编操作数。这些约束的作用域是 input 和 output 部分，约束分为以下几类：
 
 ### 3.5.1 常用约束
-#### 3.5.1.1 寄存器约束
 
-寄存器约束就是要求 gcc 使用哪个寄存器，将 input 或 output 中变量约束在某个寄存器中。常见的寄存器约束有：
+1. **Register operand constraint(r)**
 
-- `a`: 表示 a 系列寄存器 rax/eax/ax/al
+   当操作数使用此约束时，该操作数会被存放在通用寄存器(General Purpose Registers)中。例如：
 
-- `b`: 表示 b 系列寄存器 rbx/ebx/bx/bl
+   ```assembly
+   asm ("movl %%eax, %0\n" :"=r"(myval));
+   ```
 
-- `c`: 表示 c 系列寄存器 rcx/ecx/cx/cl
+   这里变量`myval`会被保存在一个寄存器中，eax寄存器的值会被copy到该寄存器，之后`myval`的值又会从该寄存器更新回内存。当`r`被指定时，gcc可能会将myval的值保存在任何一个可用的通用寄存器。如果我们想更明确的指定使用哪个寄存器，那么使用特定的寄存器约束：
 
-- `d`: 表示 d 系列寄存器 rdx/edx/dx/dl
+      - `a`: 表示 a 系列寄存器 rax/eax/ax/al
 
-- `D`: 表示寄存器 rdi/edi/di
+      - `b`: 表示 b 系列寄存器 rbx/ebx/bx/bl
 
-- `S`: 示寄存器 rsi/esi/si
+      - `c`: 表示 c 系列寄存器 rcx/ecx/cx/cl
 
-- `q`: 表示 rax/rbx/rcx/rdx 这 4 个通用寄存器中任意一个
+      - `d`: 表示 d 系列寄存器 rdx/edx/dx/dl
 
-- `r`: 表示 rax/rbx/rcx/rdx/rsi/rdi 这 6 个通用寄存器中任意一个
+      - `D`: 表示寄存器 rdi/edi/di
 
-- `g`: 表示可以存放到任意地点（寄存器和内存）。相当于除了同 q 一样外，还可以让 gcc 安排在内存中
+      - `S`: 示寄存器 rsi/esi/si
 
-- `A`: a 和 d 寄存器，用于返回结果保存在a 和 d 寄存器的指令
+      - `q`: 表示 rax/rbx/rcx/rdx 这 4 个通用寄存器中任意一个
 
-- `f`: 表示浮点寄存器
+      - `r`: 表示 rax/rbx/rcx/rdx/rsi/rdi 这 6 个通用寄存器中任意一个
 
-- `t`: 表示第 1 个浮点寄存器
+      - `g`: 表示可以存放到任意地点（寄存器和内存）。相当于除了同 q 一样外，还可以让 gcc 安排在内存中
 
-- `u`: 表示第 2 个浮点寄存器
+      - `A`: a 和 d 寄存器，用于返回结果保存在a 和 d 寄存器的指令
 
-- `p`: 表示内存地址，给 "load address" 和 "push address" 指令使用
+      - `f`: 表示浮点寄存器
 
-值得注意的一点这是，在基本内联汇编中，寄存器表示方法和直接写汇编没什么区别，都是以%开头，后面跟着寄存器名称，比如 %eax；但是在扩展内联汇编中，单个`%` 有了新的用途，用来表示占位符，所以在扩展内联汇编中的寄存器名称前要用两个%做前缀。下面对比一下：
+      - `t`: 表示第 1 个浮点寄存器
 
+      - `u`: 表示第 2 个浮点寄存器
 
-- **基本内联汇编**
+      - `p`: 表示内存地址，给 "load address" 和 "push address" 指令使用
 
-  ```C
-  #include <stdio.h>
+    值得注意的一点这是，在基本内联汇编中，寄存器表示方法和直接写汇编没什么区别，都是以%开头，后面跟着寄存器名称，比如 %eax；但是在扩展内联汇编中，单个`%` 有了新的用途，用来表示占位符，所以在扩展内联汇编中的寄存器名称前要用两个%做前缀。下面对比一下：
 
+      - **基本内联汇编**
 
-  int a = 1, b = 2, sum;
-  void main(){
-    asm("push %rax;                   \
-         push %rbx;                   \
-         movl a, %eax;                \
-         movl b, %ebx;                \
-         addl %ebx, %eax;             \
-         movl %eax, sum;              \
-         pop %rbx;                    \
-         pop %rax;");
+        ```C
+        #include <stdio.h>
+        
+        int a = 1, b = 2, sum;
+        void main(){
+            asm("push %rax;                   \
+            push %rbx;                   \
+            movl a, %eax;                \
+            movl b, %ebx;                \
+            addl %ebx, %eax;             \
+            movl %eax, sum;              \
+            pop %rbx;                    \
+            pop %rax;");
+        
+            printf("sum is %d\n", sum);
+        }
+        ```
 
-    printf("sum is %d\n", sum);
-  }
-  ```
+      - **扩展内联汇编**
 
-- **扩展内联汇编**
+        ```C
+        #include <stdio.h>
+        
+        void main(){
+            int a = 1, b = 2, sum;
+        
+            asm("addl %%ebx, %%eax":"=a"(sum):"a"(a),"b"(b));
+        
+            printf("sum is %d\n", sum);
+        }
+        ```
 
-  ```C
-  #include <stdio.h>
-
-  void main(){
-    int a = 1, b = 2, sum;
-
-    asm("addl %%ebx, %%eax":"=a"(sum):"a"(a),"b"(b));
-
-    printf("sum is %d\n", sum);
-  }
-  ```
-
-可以看到，a 和 b 是在 input 部分中输入的，用约束名 a 为C变量a指定了用寄存器eax; 用约束名b为C变量b指定了用寄存器ebx。addl 指令的结果保存到寄存器eax中，在 output 中用约束名 a 指定了把寄存器 eax 的值存储到C变量 sum 中。output 中的 `=` 号是操作数类型修饰符，表示只写，其实就是 sum = eax 的意思。
+    可以看到，a 和 b 是在 input 部分中输入的，用约束名 a 为C变量a指定了用寄存器eax; 用约束名b为C变量b指定了用寄存器ebx。addl 指令的结果保存到寄存器eax中，在 output 中用约束名 a 指定了把寄存器 eax 的值存储到C变量 sum 中。output 中的 `=` 号是操作数类型修饰符，表示只写，其实就是 sum = eax 的意思。
 
 
 #### 3.5.1.2 内存约束
