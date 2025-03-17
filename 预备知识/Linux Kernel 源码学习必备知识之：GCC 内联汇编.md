@@ -536,7 +536,7 @@ asm("movl %%eax, %0; movl %%eax %%ebx"
     - 0~9：此约束只用在 input 部分，表示该 input 操作数与 output 中第 n 个操作数用相同的寄存器或内存。
 
 
-### 3.5.2 约束修政符(constraint modifiers)
+### 3.5.2 约束修正符(constraint modifiers)
 
 在约束中还有操作数类型修饰符，用来修饰所约束的操作数。
 
