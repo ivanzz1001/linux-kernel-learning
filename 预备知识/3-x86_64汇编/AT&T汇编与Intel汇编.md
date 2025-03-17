@@ -57,7 +57,19 @@
   
     - Intel: mov bx, ax
   
-1. **内存操作数**
+1. **内存引用**
 
-   Intel语法中将基址寄存器放在`[]`中，而AT&T语法中将基址寄存器放在`()`中。
+   Intel语法中将基址寄存器放在`[]`中，而AT&T语法中将基址寄存器放在`()`中。如下是AT&T及Intel汇编间接内存引用的语法：
+
+   - AT&T: `section:disp(base, index, scale)`
+  
+   - Intel: `section:[base + index*scale + disp]`
+  
+   我们需要记住的其中一个点是：当disp/scale为常数时，不能使用`$`前缀。
+
+   下面我们再详细介绍一下AT&T内存引用语法各个部分的含义：
+
+  
+
+   
     
