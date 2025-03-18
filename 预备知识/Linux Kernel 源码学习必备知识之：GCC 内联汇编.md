@@ -562,7 +562,7 @@ asm("movl %%eax, %0; movl %%eax %%ebx"
 void main(){
     int a = 1, b = 2;
 
-    asm("addl %%ebx, %%eax;":"+a"(in_a):"b"(in_b));
+    asm("addl %%ebx, %%eax;":"+a"(a):"b"(b));
 
     printf("a is %d\n", a);
 }
