@@ -24,7 +24,7 @@
 ## 1. 下载指定版本Linux内核源代码
 
 Linux内核源代码可以到`https://mirrors.edge.kernel.org/pub/linux/kernel/`下载，这里我们下载`4.9.229`版本：
-<pre>
+```bash
 # wget https://mirrors.edge.kernel.org/pub/linux/kernel/v4.x/linux-4.9.229.tar.gz
 # ls -alh
 total 136M
@@ -41,52 +41,52 @@ block    Documentation  init     lib          README          sound
 certs    drivers        ipc      MAINTAINERS  REPORTING-BUGS  tools
 COPYING  firmware       Kbuild   Makefile     samples         usr
 CREDITS  fs             Kconfig  mm           scripts         virt
-</pre>
+```
 
 源代码目录的相关介绍如下：
 
-* arch：与硬件平台有关的选项，大部分指的是CPU的类别，例如 x86，x86_64，Xen虚拟支持等；
+- arch：与硬件平台有关的选项，大部分指的是CPU的类别，例如 x86，x86_64，Xen虚拟支持等；
 
-* block：与区块设备较相关的设置数据，区块数据通常指的是大量存储媒体，还包括ext3等文件系统的支持是否允许等；
+- block：与区块设备较相关的设置数据，区块数据通常指的是大量存储媒体，还包括ext3等文件系统的支持是否允许等；
 
-* crypto：内核所支持的加密技术，如 md5或des等；
+- crypto：内核所支持的加密技术，如 md5或des等；
 
-* Documention：与内核有关的帮助文档；
+- Documention：与内核有关的帮助文档；
 
-* drivers：一些硬件的驱动程序，如显卡、网卡、PCI相关硬件；
+- drivers：一些硬件的驱动程序，如显卡、网卡、PCI相关硬件；
 
-* firmware：一些旧式硬件的微指令（固件）数据；
+- firmware：一些旧式硬件的微指令（固件）数据；
 
-* fs：内核所支持的filesystems，如vfat、nfs等；
+- fs：内核所支持的filesystems，如vfat、nfs等；
 
-* include：一些可让其他程序调用的头（header）定义数据；
+- include：一些可让其他程序调用的头（header）定义数据；
 
-* init：一些内核初始化的定义功能，包括挂载与init程序的调用等(ps: start_kernel()函数就在此包中)；
+- init：一些内核初始化的定义功能，包括挂载与init程序的调用等(ps: start_kernel()函数就在此包中)；
 
-* ipc：定义Linux操作系统内各程序的通信；
+- ipc：定义Linux操作系统内各程序的通信；
 
-* kernel：定义内核的程序、内核状态、线程、程序的调度（schedule）、程序的信号（signal）等；
+- kernel：定义内核的程序、内核状态、线程、程序的调度（schedule）、程序的信号（signal）等；
 
-* lib：一些函数库；
+- lib：一些函数库；
 
-* mm：与内存单元有关的各种信息，包括swap与虚拟内存等；
+- mm：与内存单元有关的各种信息，包括swap与虚拟内存等；
 
-* net：与网络有关的各项协议信息，还有防火墙（net/ipv4/netfilter/*）等；
+- net：与网络有关的各项协议信息，还有防火墙（net/ipv4/netfilter/*）等；
 
-* security：包括SELinux等安全性设置；
+- security：包括SELinux等安全性设置；
 
-* sound：与音效有关的各项模块；
+- sound：与音效有关的各项模块；
 
-* virt：与虚拟化及其有关的信息，目前内核支持的是KVM（Kernel base Virtual Machine）
+- virt：与虚拟化及其有关的信息，目前内核支持的是KVM（Kernel base Virtual Machine）
 
 ## 2. 前期准备
 
 这里根据自己编译过程中遇到的相关问题可能需要预先安装如下包或工具:
-<pre>
+```bash
 # apt install build-essential
 # apt install make
 # apt install libncurses5-dev  
-</pre>
+```
 
 
 ## 3. 内核的配置
@@ -94,7 +94,8 @@ CREDITS  fs             Kconfig  mm           scripts         virt
 内核的目的在管理硬件与提供系统内核功能，因此你必须要先找到系统硬件，并且规划主机的未来任务，这样才能够编译出适合这部主机的内核。所以，真个内核编译的重要工作就是在 “挑选我们想要的功能”。
 
 ### 3.1 硬件环境查看与内核功能要求
-<pre>
+
+```bash
 # lscpu
 Architecture:            x86_64
   CPU op-mode(s):        32-bit, 64-bit
@@ -152,13 +153,13 @@ Base Board Information
 02:01.0 Ethernet controller: Intel Corporation 82545EM Gigabit Ethernet Controller (Copper) (rev 01)
 
 # lspci | grep vga                                  //显卡
-</pre>
+```
 
 
 ### 3.2 保持干净的源代码：make mrproper
 
 了解了硬件相关的信息后，我们还得要处理一下内核源代码下面的残留文件才行。可以通过以下命令在此目录下处理这些“编译过程的目标文件（*.o）以及设置文件”:
-<pre>
+```bash
 # make help
 Cleaning targets:
   clean           - Remove most generated files but keep the config and
@@ -192,86 +193,89 @@ Configuration targets:
   tinyconfig      - Configure the tiniest possible kernel
 
 # make mrproper
-</pre>
+```
 
 
 ### 3.3 配置内核
 
-1) 指定CPU arch
+1. **指定CPU arch**
 
-这里我们编译出来的内核是需要运行在x86上面的，因此这里执行如下命令导出ARCH环境变量:
-<pre>
-# export ARCH=x86
-</pre>
->ps: 如果我们不想使用此方式导出ARCH环境变量，那么我们可以在执行make命令时显示传递ARCH值。例如 make ARCH=x86 menuconfig
+    这里我们编译出来的内核是需要运行在x86上面的，因此这里执行如下命令导出ARCH环境变量:
+
+    ```bash
+    # export ARCH=x86
+    ```
+    
+    >ps: 如果我们不想使用此方式导出ARCH环境变量，那么我们可以在执行make命令时显示传递ARCH值。例如 make ARCH=x86 menuconfig
+
+1. **配置board config**
+
+    当我们在执行make menuconfig时，其会执行scripts/kconfig/Makefile => arch/$(ARCH)/Makefile, 然后根据一定的规则来自动选择board。因为在Makefile自动推导board类型时会假设我们要编译出的内核是要运行在当前编译机上，而事实上我们可能需要运行在平台上，因此这里我们直接手动指定board类型即可:
+
+   ```bash
+   # make x86_64_defconfig
+   ```
+
+   执行完成后会在源代码根目录生成`.config`配置文件。
+
+1. **对x86_64_defconfig进行微调**
+
+    这一步其实是对第2步的菜单进行微调，我们需要内核支持ramdisk驱动，所以需要选中如下配置:
+
+    >ps: 在执行menuconfig的时候，根目录下的Makefile文件如果发现有`.config`文件(参看KCONFIG_CONFIG变量设置)，那么就会加载该配置文件，此时就相当于对第2步的菜单进行微调
+
+    ```text
+    General setup  --->
+          ----> [*] Initial RAM filesystem and RAM disk (initramfs/initrd) support
+    
+    Device Drivers  --->
+        [*] Block devices  --->
+                <*>   RAM block device support
+                (65536) Default RAM disk size (kbytes) 
+    ```
+    
+    按上述修改之后记得保存。
+
+    >ps: 关于RAM filesystem的作用，参看
+    >
+    > - [initramfs 在内核中的作用与实现](https://blog.csdn.net/song_lee/article/details/106027410)
+    > - [Linux引导启动过程详细分析](https://zhuanlan.zhihu.com/p/567076094)
 
 
-2) 配置board config
-
-当我们在执行make menuconfig时，其会执行scripts/kconfig/Makefile => arch/$(ARCH)/Makefile, 然后根据一定的规则来自动选择board。因为在Makefile自动推导board类型时会假设我们要编译出的内核是要运行在当前编译机上，而事实上我们可能需要运行在平台上，因此这里我们直接手动指定board类型即可:
-<pre>
-# make x86_64_defconfig 
-</pre>
-执行完成后会在源代码根目录生成`.config`配置文件。
-
-
-
-3) 对x86_64_defconfig进行微调
-
-这一步其实是对第2步的菜单进行微调，我们需要内核支持ramdisk驱动，所以需要选中如下配置:
-
->ps: 在执行menuconfig的时候，根目录下的Makefile文件如果发现有`.config`文件(参看KCONFIG_CONFIG变量设置)，那么就会加载该配置文件，此时就相当于对第2步的菜单进行微调
-
-```
-General setup  --->
-      ----> [*] Initial RAM filesystem and RAM disk (initramfs/initrd) support
-
-Device Drivers  --->
-    [*] Block devices  --->
-            <*>   RAM block device support
-            (65536) Default RAM disk size (kbytes) 
-```
-按上述修改之后记得保存。
-
->ps: 关于RAM filesystem的作用，参看
->
-> - [initramfs 在内核中的作用与实现](https://blog.csdn.net/song_lee/article/details/106027410)
-> - [Linux引导启动过程详细分析](https://zhuanlan.zhihu.com/p/567076094)
-
-
-题外话，menuconfig的大体菜单样式如下，这里我们简单看一下：
-```
-# make menuconfig
-[*] 64-bit kernel
-	General setup  --->
-[*] Enable loadable module support  --->
-[*] Enable the block layer  --->
-	Processor type and features  --->
-	Power management and ACPI options  --->
-	Bus options (PCI etc.)  --->
-	Executable file formats / Emulations  --->
-[*] Networking support  --->
-	Device Drivers  --->
-	Firmware Drivers  --->
-	File systems  --->
-	Kernel hacking  --->
-	Security options  --->
--*- Cryptographic API  --->
-[*] Virtualization  ---> 
+    题外话，menuconfig的大体菜单样式如下，这里我们简单看一下：
+    ```bash
+    # make menuconfig
+    [*] 64-bit kernel
+	    General setup  --->
+    [*] Enable loadable module support  --->
+    [*] Enable the block layer  --->
+	    Processor type and features  --->
+	    Power management and ACPI options  --->
+	    Bus options (PCI etc.)  --->
+	    Executable file formats / Emulations  --->
+    [*] Networking support  --->
+	    Device Drivers  --->
+	    Firmware Drivers  --->
+	    File systems  --->
+	    Kernel hacking  --->
+	    Security options  --->
+    -*- Cryptographic API  --->
+    [*] Virtualization  ---> 
 	Library routines  --->
-```
+    ```
 
 ## 4. 编译
+
 这里直接执行make命令编译即可，编译成功后的内核位于：arch/x86_64/boot/bzImage 
-```
-$ make 
-$ ls -ahl arch/x86_64/boot/ 
+```bash
+# make 
+# ls -ahl arch/x86_64/boot/ 
 total 8.0K
 drwxr-xr-x 2 root root 4.0K  3月 24 21:25 .
 drwxr-xr-x 3 root root 4.0K  3月 24 21:25 ..
 lrwxrwxrwx 1 root root   22  3月 24 21:25 bzImage -> ../../x86/boot/bzImage
 
-$ ls -alh arch/x86/boot/bzImage 
+# ls -alh arch/x86/boot/bzImage 
 -rw-r--r-- 1 root root 6.6M  3月 24 21:25 arch/x86/boot/bzImage
 ```
 
