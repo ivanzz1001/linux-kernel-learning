@@ -581,7 +581,7 @@ setbe / setna D         Set if below or equal (unsigned)   CF|ZF                
     ```
 
     `示例`:
-    ```text
+    ```assembly
     ## 直接跳转示例 
       movq $0, %rax
       jmp .L1                 # 直接跳转
