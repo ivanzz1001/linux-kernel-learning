@@ -282,7 +282,7 @@ movabsq I, R     I → R	        传送绝对的四字
 
 movabsq指令是处理64位立即数数据的。常规的movq指令只能以表示为32位补码数字的立即数作为源操作数，然后把这个值符号扩展得到64位的值，放到目的位置。movabsq指令能够以任意64位立即数作为源操作数，并且只能以寄存器作为目的。
 
-代码示例：
+**代码示例**
 
 ```assembly
 movl $0x4050, %eax              # 立即数 --> 寄存器，4字节
@@ -292,17 +292,17 @@ movb $-17, (%rsp)               # 立即数 --> 内存，1字节
 movq %rax, -12(%rap)            # 寄存器 --> 内存，8字节
 ```
 
-1. **理解数据传送如何改变目的寄存器**
+**理解数据传送如何改变目的寄存器**
 
-    ```assembly
-    movabsq $0x0011223344556677, %rax   # %rax = 0x0011223344556677
-    movb    $-1, %al                    # %rax = 0x00112233445566FF
-    movw    $-1, %ax                    # %rax = 0x001122334455FFFF
-    movl    $-1, %eax                   # %rax = 0x00000000FFFFFFFF
-    movq    $-1, %rax                   # %rax = 0xFFFFFFFFFFFFFFFF
-    ```
+```assembly
+movabsq $0x0011223344556677, %rax   # %rax = 0x0011223344556677
+movb    $-1, %al                    # %rax = 0x00112233445566FF
+movw    $-1, %ax                    # %rax = 0x001122334455FFFF
+movl    $-1, %eax                   # %rax = 0x00000000FFFFFFFF
+movq    $-1, %rax                   # %rax = 0xFFFFFFFFFFFFFFFF
+```
     
-    在这个例子中，第一行的指令把寄存器%rax初始化为位模式 0011223344556677。剩下的指令源操作数是立即数-1。因此 movb 指令把%rax的低位字节设置为 FF，而 movw 指令把低 2 位字节设置为 FFFF，剩下的字节保持不变。movl 指令将低 4 个字节设置为 FFFFFFFF，同时把高位 4 字节设置为 00000000。最后 movq 指令把整个寄存器设置为 FFFFFFFFFFFFFFFF。
+在这个例子中，第一行的指令把寄存器%rax初始化为位模式 0011223344556677。剩下的指令源操作数是立即数-1。因此 movb 指令把%rax的低位字节设置为 FF，而 movw 指令把低 2 位字节设置为 FFFF，剩下的字节保持不变。movl 指令将低 4 个字节设置为 FFFFFFFF，同时把高位 4 字节设置为 00000000。最后 movq 指令把整个寄存器设置为 FFFFFFFFFFFFFFFF。
 
 #### 2.2.2  扩展传送指令
 
