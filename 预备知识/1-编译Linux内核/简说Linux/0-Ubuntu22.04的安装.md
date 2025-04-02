@@ -3,4 +3,4 @@
 
 参看如下文章:
 
-- [Ubuntu22.04安装](https://www.bilibili.com/read/cv17333643/)
+- [VMware安装ubuntu-22.04虚拟机 原创](https://blog.51cto.com/musnow/13303531)
