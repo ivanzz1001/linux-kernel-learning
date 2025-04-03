@@ -236,33 +236,32 @@ Configuration targets:
     
     按上述修改之后记得保存。
 
-    >ps: 关于RAM filesystem的作用，参看
-    >
-    > - [initramfs 在内核中的作用与实现](https://blog.csdn.net/song_lee/article/details/106027410)
-    > - [Linux引导启动过程详细分析](https://zhuanlan.zhihu.com/p/567076094)
+    说明: 关于这里为什么要选择`内核支持ramdisk驱动`，请参看'4-initramfs'相关文档
 
 
-    题外话，menuconfig的大体菜单样式如下，这里我们简单看一下：
-    ```bash
-    # make menuconfig
-    [*] 64-bit kernel
-	    General setup  --->
-    [*] Enable loadable module support  --->
-    [*] Enable the block layer  --->
-	    Processor type and features  --->
-	    Power management and ACPI options  --->
-	    Bus options (PCI etc.)  --->
-	    Executable file formats / Emulations  --->
-    [*] Networking support  --->
-	    Device Drivers  --->
-	    Firmware Drivers  --->
-	    File systems  --->
-	    Kernel hacking  --->
-	    Security options  --->
-    -*- Cryptographic API  --->
-    [*] Virtualization  ---> 
-	Library routines  --->
-    ```
+---
+
+最后我们来看一下menuconfig的大体菜单样式:
+```bash
+# make menuconfig
+[*] 64-bit kernel
+  General setup  --->
+[*] Enable loadable module support  --->
+[*] Enable the block layer  --->
+  Processor type and features  --->
+  Power management and ACPI options  --->
+  Bus options (PCI etc.)  --->
+  Executable file formats / Emulations  --->
+[*] Networking support  --->
+  Device Drivers  --->
+  Firmware Drivers  --->
+  File systems  --->
+  Kernel hacking  --->
+  Security options  --->
+-*- Cryptographic API  --->
+[*] Virtualization  ---> 
+Library routines  --->
+```
 
 ## 4. 编译
 

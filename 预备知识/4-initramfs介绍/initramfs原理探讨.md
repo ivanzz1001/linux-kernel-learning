@@ -9,3 +9,7 @@
 - [initramfs 最全解释与制作](https://blog.csdn.net/weixin_43269452/article/details/131169725)
 
 - [bootparam](https://www.man7.org/linux/man-pages/man7/bootparam.7.html)
+
+- [initramfs 在内核中的作用与实现](https://blog.csdn.net/song_lee/article/details/106027410)
+
+- [Linux引导启动过程详细分析](https://zhuanlan.zhihu.com/p/567076094)
