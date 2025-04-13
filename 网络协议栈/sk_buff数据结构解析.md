@@ -361,3 +361,117 @@ struct sk_buff {
 };
 ```
 
+# 1. sk_buff整体拓扑
+
+sk_buff本身是一个元数据结构，其并不包含任何packet data。所有的数据都存放在所关联的buffer中。
+
+![skbuff-top](https://raw.githubusercontent.com/ivanzz1001/linux-kernel-learning/master/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E6%A0%88/image/sk_buff_1.png)
+
+sk_buff由一个线性buffer(linear data buffer)和可选的page buffer所组成：
+
+1. **线性Buffer**
+
+    sk_buff.head到sk_buff.end之间的这段缓存称为线性Buffer，其由`head`、`data`、`tail`、`end`四个字段将这一部分空间分成三段:
+
+      - headroom
+
+      - data
+
+      - tailroom
+
+1. **Page Buffer**
+
+    由skb_shared_info指向的这段空间称为page buffer。
+
+
+# 2. 关键字段解析
+
+
+## 2.1 链表与队列管理
+
+```C
+union {
+    struct {
+        /* These two members must be first to match sk_buff_head. */
+        struct sk_buff		*next;
+        struct sk_buff		*prev;
+
+        union {
+            struct net_device	*dev;
+            /* Some protocols might use this space to store information,
+                * while device pointer would be NULL.
+                * UDP receive path is one user.
+                */
+            unsigned long		dev_scratch;
+        };
+    };
+    struct rb_node		rbnode; /* used in netem, ip4 defrag, and tcp stack */
+    struct list_head	list;
+    struct llist_node	ll_node;
+};
+```
+
+1. **next和prev**
+
+    - 用途：构成双向链表，用于将多个sk_buff组织成队列（如接收队列`input_pkt_queue` 或发送队列`qdisc_priv`）。
+
+    - 操作：通过 skb_queue_head/skb_queue_tail 等函数管理队列
+
+    - 关键点：与 sk_buff_head 结构共享前两个字段，确保队列操作的高效性
+
+2. **list和rbnode**
+
+    - list：通用链表头，用于协议无关的链表管理（如软中断处理队列）。
+
+    - rbnode：红黑树节点，用于需要高效查找的场景（如 TCP 重传队列、网络仿真 netem）。
+
+
+### 2.1.1 sk_buff_head结构
+
+在上面我们提到了`sk_buff_head`结构，其定义在include/linux/skbuff.h中:
+
+```C
+struct sk_buff_head {
+	/* These two members must be first to match sk_buff. */
+	struct_group_tagged(sk_buff_list, list,
+		struct sk_buff	*next;
+		struct sk_buff	*prev;
+	);
+
+	__u32		qlen;
+	spinlock_t	lock;
+};
+```
+
+由于`sk_buff`本身是一个链表结构，为了能够快速地从整个链表的头部找到每个sk_buff，因此在第一个sk_buff的前面会插入一个辅助头节点，即`sk_buff_head`。
+
+1. **struct_group_tagged**
+
+    `struct_group_tagged`是一个宏，定义在include/linux/stddef.hz中：
+
+    ```C
+    /**
+     * struct_group_tagged() - Create a struct_group with a reusable tag
+     *
+     * @TAG: The tag name for the named sub-struct
+     * @NAME: The identifier name of the mirrored sub-struct
+     * @MEMBERS: The member declarations for the mirrored structs
+     *
+     * Used to create an anonymous union of two structs with identical
+     * layout and size: one anonymous and one named. The former can be
+     * used normally without sub-struct naming, and the latter can be
+     * used to reason about the start, end, and size of the group of
+     * struct members. Includes struct tag argument for the named copy,
+     * so the specified layout can be reused later.
+     */
+    #define struct_group_tagged(TAG, NAME, MEMBERS...) \
+	    __struct_group(TAG, NAME, /* no attrs */, MEMBERS)
+    ```
+
+
+
+
+
+
+
+
