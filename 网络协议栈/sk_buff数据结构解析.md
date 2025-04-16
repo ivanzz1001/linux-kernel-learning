@@ -419,12 +419,50 @@ union {
 
     - 关键点：与 sk_buff_head 结构共享前两个字段，确保队列操作的高效性
 
-2. **list和rbnode**
+1. **list和rbnode**
 
     - list：通用链表头，用于协议无关的链表管理（如软中断处理队列）。
 
     - rbnode：红黑树节点，用于需要高效查找的场景（如 TCP 重传队列、网络仿真 netem）。
 
+1. **dev**
+
+    指向接收或发送此数据包的网络设备（struct net_device）
+
+1. **dev_scratch**
+
+    当`dev`字段为NULL时，某些协议会使用此字段来存储一些信息，例如UDP协议:
+
+    ```C
+    /* UDP uses skb->dev_scratch to cache as much information as possible and avoid
+     * possibly multiple cache miss on dequeue()
+     */
+    struct udp_dev_scratch {
+	    /* skb->truesize and the stateless bit are embedded in a single field;
+	     * do not use a bitfield since the compiler emits better/smaller code
+	     * this way
+	     */
+	    u32 _tsize_state;
+
+    #if BITS_PER_LONG == 64
+	    /* len and the bit needed to compute skb_csum_unnecessary
+	     * will be on cold cache lines at recvmsg time.
+	     * skb->len can be stored on 16 bits since the udp header has been
+	     * already validated and pulled.
+	     */
+	     u16 len;
+	     bool is_linear;
+	     bool csum_unnecessary;
+    #endif
+    };
+
+    static inline struct udp_dev_scratch *udp_skb_scratch(struct sk_buff *skb)
+    {
+	    return (struct udp_dev_scratch *)&skb->dev_scratch;
+    }
+    ```
+
+    通过上面我们看到在`skb->dev_scrach`位置处存放了一个udp_dev_scratch结构.
 
 ### 2.1.1 sk_buff_head结构
 
@@ -468,9 +506,137 @@ struct sk_buff_head {
 	    __struct_group(TAG, NAME, /* no attrs */, MEMBERS)
     ```
 
+    `struct_group_tagged`又引用了`__struct_group`宏，其定义在include/uapi/linux/stddef.h中:
+
+    ```C
+    /**
+     * __struct_group() - Create a mirrored named and anonyomous struct
+     *
+     * @TAG: The tag name for the named sub-struct (usually empty)
+     * @NAME: The identifier name of the mirrored sub-struct
+     * @ATTRS: Any struct attributes (usually empty)
+     * @MEMBERS: The member declarations for the mirrored structs
+     *
+     * Used to create an anonymous union of two structs with identical layout
+     * and size: one anonymous and one named. The former's members can be used
+     * normally without sub-struct naming, and the latter can be used to
+     * reason about the start, end, and size of the group of struct members.
+     * The named struct can also be explicitly tagged for layer reuse, as well
+     * as both having struct attributes appended.
+     */
+    #define __struct_group(TAG, NAME, ATTRS, MEMBERS...) \
+	    union { \
+		    struct { MEMBERS } ATTRS; \
+		    struct TAG { MEMBERS } ATTRS NAME; \
+	    } ATTRS
+    ```
+
+    由此，展开之后我们得到如下结构:
+
+    ```C
+    union{
+        struct {
+            struct sk_buff	*next;
+		    struct sk_buff	*prev;
+        };
+        struct sk_buff_list{
+            struct sk_buff	*next;
+		    struct sk_buff	*prev;
+        } list;
+    };
+    ```
+
+1. **qlen**
+
+    表示链表中的节点数
+
+1. **lock**
+
+    用作多线程同步
 
 
+1. **关键说明**
 
+    `sk_buff` 和 `sk_buff_head` 开始的两个节点(next、prev)是相同的，即使 sk_buff_head 比 sk_buff 更轻量化.
+
+## 2.2. 内存管理相关字段
+
+1. **head**、**data**、**tail**、**end**
+
+    - head: 指向数据缓冲区起始地址(通过`kmalloc`或页面分配)
+
+    - data: 指向当前协议层有效数据的起始位置（如 TCP 报文头）。
+
+    - tail: 指向当前有效数据的末尾
+
+    - end: 指向数据缓冲区的结束位置
+
+    
+    **相关操作**: 通过`skb_reserve`预留头部空间，`skb_push/skb_pull` 调整 data 指针
+
+
+1. **truesize**
+
+    - 用途：记录 sk_buff 结构体及其数据缓冲区的总内存大小
+
+    - 计算方式: `truesize = sizeof(struct sk_buff) + (end - head)`。
+
+    关于socket buffer统计，更多详细信息可以参看[SKB socket accounting](http://oldvger.kernel.org/~davem/skb_sk.html)
+
+1. **len和data_len**
+
+    - len: 总数据长度（包括线性数据 data 和非线性分片 frags）
+
+    - data_len: 仅包含非线性分片数据的长度（如通过 skb_shinfo(skb)->frags 管理的分页数据）
+
+
+    因此`(len - data_len)`即为位于线性buffer 的数据大小，skb_headlen() 函数用于计算这个值：
+
+    ```C
+    static inline unsigned int skb_headlen(const struct sk_buff *skb)
+    {
+	    return skb->len - skb->data_len;
+    }
+    ```
+
+## 2.3 SKB对象引用计数
+
+使用`users`字段来统计`SKB对象`的引用计数:
+
+- alloc_skb()创建SKB对象，users为1
+
+- skb_get()获取SKB对象, users值增加1
+
+- kfree_skb()释放SKB对象, users值减1
+
+
+1. **alloc_skb()创建SKB对象**
+
+    我们可以在include/linux/skbuff.h中找到alloc_skb()函数:
+
+    ```C
+    /**
+     * alloc_skb - allocate a network buffer
+     * @size: size to allocate
+     * @priority: allocation mask
+     *
+     * This function is a convenient wrapper around __alloc_skb().
+     */
+    static inline struct sk_buff *alloc_skb(unsigned int size,
+                     gfp_t priority)
+    {
+	    return __alloc_skb(size, priority, 0, NUMA_NO_NODE);
+    }
+    ```
+
+
+# 3.skb_shared_info介绍
+
+# 4. skb.users与skb_shared_info.dataref
+
+# 5. SKB数据区域相关操作
+
+skb数据区域的相关操作参看: http://oldvger.kernel.org/~davem/skb_data.html
 
 
 
