@@ -655,7 +655,26 @@ char			cb[48] __aligned(8);
 
 - 访问方式：通过宏 TCP_SKB_CB(skb) 访问 TCP 私有数据。
 
-## 2.7 skb相关标志位
+## 2.7 _skb_refdst、tcp_tsorted_anchor与_sk_redir
+
+```C
+union {
+	struct {
+		unsigned long	_skb_refdst;
+		void		(*destructor)(struct sk_buff *skb);
+	};
+		struct list_head	tcp_tsorted_anchor;
+#ifdef CONFIG_NET_SOCK_MSG
+	unsigned long		_sk_redir;
+#endif
+};
+```
+
+
+
+
+
+## 2.9 skb相关标志位
 
 ```C
 /* if you move cloned around you also must adapt those constants */
@@ -701,7 +720,7 @@ char			cb[48] __aligned(8);
 - pp_recycle: 指示使用page pool来进行空间回收
 
 
-## 2.8 skb headers结构
+## 2.9 skb headers结构
 
 ```C
 /* Fields enclosed in headers group are copied
@@ -830,7 +849,7 @@ struct_group(headers,
 ); /* end headers group */
 ```
 
-### 2.8.1 struct_group结构
+### 2.9.1 struct_group结构
 
 `struct_group`定义在include/uapi/linux/stddef.h中:
 
@@ -882,7 +901,7 @@ union{
 
 通过上面可知，struct_group创建了一个匿名的union。
 
-### 2.8.2 关键字段分析
+### 2.9.2 关键字段分析
 
 1. **pkt_type**
 
@@ -920,6 +939,20 @@ union{
 
       - 调试或特殊网络配置：强制分片以测试网络路径的MTU兼容性
 
+1. **ip_summed**
+
+    - 用途：指示校验和状态，可选值：
+
+      - CHECKSUM_NONE：未计算校验和。
+
+      - CHECKSUM_COMPLETE：硬件已计算 L4 校验和。
+
+      - CHECKSUM_PARTIAL：需要硬件补全校验和。
+
+1. **ooo_okay**
+
+    指示是否允许socket所映射到的队列发生改变
+
 1. **encapsulation、encap_hdr_csum、csum_valid**
 
     ```C
@@ -935,7 +968,9 @@ union{
 
     - csum_valid: 当值为1时，表示checksum已经计算过，已经有效了
 
+1. **alloc_cpu**
 
+    指示当前skb是哪一个CPU分配的
 
 1. **校验和相关**
 
@@ -958,7 +993,31 @@ union{
 1. **priority**
 
     指定数据包的queueing优先级
-   
+
+1. **skb_iif**
+
+    指定skb数据包从哪一个设备接口编号(interface index)发送，或从哪一个设备接口编号接收的
+
+1. **hash**
+
+    skb数据包hash值
+
+1. **vlan相关**
+
+    ```C
+    union {
+		u32		vlan_all;
+		struct {
+			__be16	vlan_proto;
+			__u16	vlan_tci;
+		};
+	};
+    ```
+
+    - vlan_proto: vlan所封装的协议
+
+    - vlan_tci: vlan tag控制信息
+
 1. **协议头指针相关**
 
     **mac_header、network_header、transport_header**
@@ -1000,6 +1059,12 @@ union{
 
 ## 2.7 其他字段
 
+1. **queue_mapping**
+
+    对于多队列设备，用于指定当前skb数据包采用哪一个队列进行发送，或者从哪一个队列接收的。
+
+
+
 
     
 # 3. Shared skbs and skb clones
@@ -1015,4 +1080,16 @@ skb数据区域的相关操作参看: http://oldvger.kernel.org/~davem/skb_data.
 
 
 
+# 6. 总结
 
+struct sk_buff 是 Linux 网络协议栈的核心枢纽，其字段设计紧密围绕以下目标：
+
+- 高效内存管理：通过指针调整避免数据拷贝。
+
+- 跨协议层协作：通过分层头指针支持协议栈处理。
+
+- 硬件加速支持：通过标志位和字段（如 ip_summed）实现硬件卸载。
+
+- 动态扩展性：通过 cb 和 skb_ext 支持私有数据存储。
+
+理解每个字段的用途及操作函数（如 skb_push、skb_clone）是开发内核网络模块或优化协议栈性能的关键基础
