@@ -554,7 +554,6 @@ struct sk_buff_head {
 
     用作多线程同步
 
-
 1. **关键说明**
 
     `sk_buff` 和 `sk_buff_head` 开始的两个节点(next、prev)是相同的，即使 sk_buff_head 比 sk_buff 更轻量化.
@@ -574,7 +573,6 @@ struct sk_buff_head {
     
     **相关操作**: 通过`skb_reserve`预留头部空间，`skb_push/skb_pull` 调整 data 指针
 
-
 1. **truesize**
 
     - 用途：记录 sk_buff 结构体及其数据缓冲区的总内存大小
@@ -583,9 +581,17 @@ struct sk_buff_head {
 
     关于socket buffer统计，更多详细信息可以参看[SKB socket accounting](http://oldvger.kernel.org/~davem/skb_sk.html)
 
+1. **users**
+
+    sk_buff线性空间(head~end)的原子引用计数，通过 skb_get 增加引用，kfree_skb 减少引用。
+
+    关于`users`的使用场景，参看：Shared skbs and skb clones
+
+## 2.3 数据包元数据
+
 1. **len和data_len**
 
-    - len: 总数据长度（包括线性数据 data 和非线性分片 frags）
+    - len: 总数据长度（包括线性数据`data`和非线性分片`frags`）
 
     - data_len: 仅包含非线性分片数据的长度（如通过 skb_shinfo(skb)->frags 管理的分页数据）
 
@@ -599,40 +605,409 @@ struct sk_buff_head {
     }
     ```
 
-## 2.3 SKB对象引用计数
+1. **mac_len和hdr_len**
 
-使用`users`字段来统计`SKB对象`的引用计数:
+    - mac_len: 链路层头部长度（如以太网头的 14 字节）。
 
-- alloc_skb()创建SKB对象，users为1
+    - hdr_len: 保留字段，通常用于特定协议的自定义头部长度。
 
-- skb_get()获取SKB对象, users值增加1
+## 2.4 socket相关
 
-- kfree_skb()释放SKB对象, users值减1
+```C
+union {
+    struct sock		*sk;
+    int			ip_defrag_offset;
+};
+```
+
+- sk: 指向与此skb关联的socket，当这个包是socket发出或接收时，这里指向对应的socket；而如果是转发包，这里是NULL。
+
+- ip_defrag_offset: 用于 在IP分片重组过程中记录当前分片在完整数据包中的字节偏移量，以便内核能够正确合并所有分片数据
 
 
-1. **alloc_skb()创建SKB对象**
+## 2.5 skb数据包发送与接收时间戳
 
-    我们可以在include/linux/skbuff.h中找到alloc_skb()函数:
+```C
+union {
+    ktime_t		tstamp;
+    u64		skb_mstamp_ns; /* earliest departure time */
+};
+```
+
+- tstamp: 记录当前skb数据包发送或接收时的时间戳。由于计算时间戳代价昂贵，因此只会在必要的情况下进行记录。
+
+- skb_mstamp_ns: 用于tcp重传，记录最早的tcp数据包重传时间
+
+
+## 2.6 skb控制缓存区
+
+```C
+/*
+    * This is the control buffer. It is free to use for every
+    * layer. Please put your private variables there. If you
+    * want to keep them across layers you have to do a skb_clone()
+    * first. This is owned by whoever has the skb queued ATM.
+    */
+char			cb[48] __aligned(8);
+```
+
+- 用途：各协议层私有数据存储区（如 TCP 的 struct tcp_skb_cb）。
+
+- 访问方式：通过宏 TCP_SKB_CB(skb) 访问 TCP 私有数据。
+
+## 2.7 skb相关标志位
+
+```C
+/* if you move cloned around you also must adapt those constants */
+#ifdef __BIG_ENDIAN_BITFIELD
+#define CLONED_MASK	(1 << 7)
+#else
+#define CLONED_MASK	1
+#endif
+#define CLONED_OFFSET		offsetof(struct sk_buff, __cloned_offset)
+
+	/* private: */
+	__u8			__cloned_offset[0];
+	/* public: */
+	__u8			cloned:1,
+				nohdr:1,
+				fclone:2,
+				peeked:1,
+				head_frag:1,
+				pfmemalloc:1,
+				pp_recycle:1; /* page_pool recycle indicator */
+#ifdef CONFIG_SKB_EXTENSIONS
+	__u8			active_extensions;
+#endif
+```
+- cloned：标记此 skb 是否为克隆（共享数据缓冲区）
+
+- nohdr: 标记数据包头部是否已被剥离（如用于 AF_PACKET 原始套接字）。
+
+- fclone: skb clone状态，可以取如下值
+
+  ```C
+  enum {
+	  SKB_FCLONE_UNAVAILABLE,	/* skb has no fclone (from head_cache) */
+	  SKB_FCLONE_ORIG,	/* orig skb (from fclone_cache) */
+	  SKB_FCLONE_CLONE,	/* companion fclone skb (from fclone_cache) */
+  };
+  ```
+
+- peeked: this packet has been seen already, so stats have been done for it, don't do them again
+
+- pfmemalloc: 标记数据缓冲区是否从内存紧急分配池分配
+
+- pp_recycle: 指示使用page pool来进行空间回收
+
+
+## 2.8 skb headers结构
+
+```C
+/* Fields enclosed in headers group are copied
+ * using a single memcpy() in __copy_skb_header()
+ */
+struct_group(headers,
+
+	/* private: */
+	__u8			__pkt_type_offset[0];
+	/* public: */
+	__u8			pkt_type:3; /* see PKT_TYPE_MAX */
+	__u8			ignore_df:1;
+	__u8			dst_pending_confirm:1;
+	__u8			ip_summed:2;
+	__u8			ooo_okay:1;
+
+	/* private: */
+	__u8			__mono_tc_offset[0];
+	/* public: */
+	__u8			mono_delivery_time:1;	/* See SKB_MONO_DELIVERY_TIME_MASK */
+#ifdef CONFIG_NET_XGRESS
+	__u8			tc_at_ingress:1;	/* See TC_AT_INGRESS_MASK */
+	__u8			tc_skip_classify:1;
+#endif
+	__u8			remcsum_offload:1;
+	__u8			csum_complete_sw:1;
+	__u8			csum_level:2;
+	__u8			inner_protocol_type:1;
+
+	__u8			l4_hash:1;
+	__u8			sw_hash:1;
+#ifdef CONFIG_WIRELESS
+	__u8			wifi_acked_valid:1;
+	__u8			wifi_acked:1;
+#endif
+	__u8			no_fcs:1;
+	/* Indicates the inner headers are valid in the skbuff. */
+	__u8			encapsulation:1;
+	__u8			encap_hdr_csum:1;
+	__u8			csum_valid:1;
+#ifdef CONFIG_IPV6_NDISC_NODETYPE
+	__u8			ndisc_nodetype:2;
+#endif
+
+#if IS_ENABLED(CONFIG_IP_VS)
+	__u8			ipvs_property:1;
+#endif
+#if IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TRACE) || IS_ENABLED(CONFIG_NF_TABLES)
+	__u8			nf_trace:1;
+#endif
+#ifdef CONFIG_NET_SWITCHDEV
+	__u8			offload_fwd_mark:1;
+	__u8			offload_l3_fwd_mark:1;
+#endif
+	__u8			redirected:1;
+#ifdef CONFIG_NET_REDIRECT
+	__u8			from_ingress:1;
+#endif
+#ifdef CONFIG_NETFILTER_SKIP_EGRESS
+	__u8			nf_skip_egress:1;
+#endif
+#ifdef CONFIG_TLS_DEVICE
+	__u8			decrypted:1;
+#endif
+	__u8			slow_gro:1;
+#if IS_ENABLED(CONFIG_IP_SCTP)
+	__u8			csum_not_inet:1;
+#endif
+
+#if defined(CONFIG_NET_SCHED) || defined(CONFIG_NET_XGRESS)
+	__u16			tc_index;	/* traffic control index */
+#endif
+
+	u16			alloc_cpu;
+
+	union {
+		__wsum		csum;
+		struct {
+			__u16	csum_start;
+			__u16	csum_offset;
+		};
+	};
+	__u32			priority;
+	int			skb_iif;
+	__u32			hash;
+	union {
+		u32		vlan_all;
+		struct {
+			__be16	vlan_proto;
+			__u16	vlan_tci;
+		};
+	};
+#if defined(CONFIG_NET_RX_BUSY_POLL) || defined(CONFIG_XPS)
+	union {
+		unsigned int	napi_id;
+		unsigned int	sender_cpu;
+	};
+#endif
+#ifdef CONFIG_NETWORK_SECMARK
+	__u32		secmark;
+#endif
+
+	union {
+		__u32		mark;
+		__u32		reserved_tailroom;
+	};
+
+	union {
+		__be16		inner_protocol;
+		__u8		inner_ipproto;
+	};
+
+	__u16			inner_transport_header;
+	__u16			inner_network_header;
+	__u16			inner_mac_header;
+
+	__be16			protocol;
+	__u16			transport_header;
+	__u16			network_header;
+	__u16			mac_header;
+
+#ifdef CONFIG_KCOV
+	u64			kcov_handle;
+#endif
+
+); /* end headers group */
+```
+
+### 2.8.1 struct_group结构
+
+`struct_group`定义在include/uapi/linux/stddef.h中:
+
+```C
+/**
+ * struct_group() - Wrap a set of declarations in a mirrored struct
+ *
+ * @NAME: The identifier name of the mirrored sub-struct
+ * @MEMBERS: The member declarations for the mirrored structs
+ *
+ * Used to create an anonymous union of two structs with identical
+ * layout and size: one anonymous and one named. The former can be
+ * used normally without sub-struct naming, and the latter can be
+ * used to reason about the start, end, and size of the group of
+ * struct members.
+ */
+#define struct_group(NAME, MEMBERS...)	\
+	__struct_group(/* no tag */, NAME, /* no attrs */, MEMBERS)
+
+/**
+ * __struct_group() - Create a mirrored named and anonyomous struct
+ *
+ * @TAG: The tag name for the named sub-struct (usually empty)
+ * @NAME: The identifier name of the mirrored sub-struct
+ * @ATTRS: Any struct attributes (usually empty)
+ * @MEMBERS: The member declarations for the mirrored structs
+ *
+ * Used to create an anonymous union of two structs with identical layout
+ * and size: one anonymous and one named. The former's members can be used
+ * normally without sub-struct naming, and the latter can be used to
+ * reason about the start, end, and size of the group of struct members.
+ * The named struct can also be explicitly tagged for layer reuse, as well
+ * as both having struct attributes appended.
+ */
+#define __struct_group(TAG, NAME, ATTRS, MEMBERS...) \
+	union { \
+		struct { MEMBERS } ATTRS; \
+		struct TAG { MEMBERS } ATTRS NAME; \
+	} ATTRS
+```
+因此，这里针对`sk_buff`展开即为：
+
+```C
+union{
+    struct{ MEMBERS};
+    struct { MEMBERS } headers;
+}
+```
+
+通过上面可知，struct_group创建了一个匿名的union。
+
+### 2.8.2 关键字段分析
+
+1. **pkt_type**
+
+    用于标识数据包类型。取值可以为(include/uapi/linux/if_packet.h):
+
+    - PACKET_HOST: 表示发给本机的数据包
+
+    - PACKET_BROADCAST：广播包
+
+    - PACKET_MULTICAST：组播包
+
+    - PACKET_OTHERHOST: 发给其他主机的包
+
+    - PACKET_OUTGOING：outgoing的任何数据包
+
+    - PACKET_USER：发送给用户空间的数据包
+
+    - PACKET_KERNEL: 发送给内核空间的数据包
+
+1. **ignore_df**
+
+    用于 控制是否忽略IP头中的“Don’t Fragment”（DF）标志位，允许内核在特定场景下强制对数据包进行分片（即使DF位被标记）。
+
+    **核心作用:**
+
+      - IP头中的 DF 标志位通常用于指示数据包是否允许分片（例如，用于路径MTU发现）
+
+      - 当 ignore_df 字段设置为 1 时，内核会忽略IP头中的 DF 标志，强制对数据包进行分片（即使原IP头标记了 DF=1）。
+
+    **典型应用场景:**
+
+      - 隧道封装（如IPsec、GRE）：外层IP包可能需要分片，而内层IP包的 DF 标志应被忽略
+
+      - 透明代理或NAT：修改数据包后需要重新分片，但需保留原始 DF 标志状态。
+
+      - 调试或特殊网络配置：强制分片以测试网络路径的MTU兼容性
+
+1. **encapsulation、encap_hdr_csum、csum_valid**
 
     ```C
-    /**
-     * alloc_skb - allocate a network buffer
-     * @size: size to allocate
-     * @priority: allocation mask
-     *
-     * This function is a convenient wrapper around __alloc_skb().
-     */
-    static inline struct sk_buff *alloc_skb(unsigned int size,
-                     gfp_t priority)
-    {
-	    return __alloc_skb(size, priority, 0, NUMA_NO_NODE);
-    }
+    /* Indicates the inner headers are valid in the skbuff. */
+	__u8			encapsulation:1;
+	__u8			encap_hdr_csum:1;
+	__u8			csum_valid:1;
     ```
 
+    - encapsulation: 用于指示sk_buff的inner headers是否有效
 
-# 3.skb_shared_info介绍
+    - encap_hdr_csum: 用于指示需要checksum
 
-# 4. skb.users与skb_shared_info.dataref
+    - csum_valid: 当值为1时，表示checksum已经计算过，已经有效了
+
+
+
+1. **校验和相关**
+
+    ```C
+    union {
+		__wsum		csum;
+		struct {
+			__u16	csum_start;
+			__u16	csum_offset;
+		};
+	};
+    ```
+
+    - csum: 存储校验和计算结果。
+
+    - csum_start: 从skb->head指定偏移处开始计算checksum
+
+    - csum_offset: 指定将checksum保存到从csum_start位置起的offset处
+
+1. **priority**
+
+    指定数据包的queueing优先级
+   
+1. **协议头指针相关**
+
+    **mac_header、network_header、transport_header**
+
+      - mac_header: 指向链路层（L2）头部（如以太网头）
+
+      - network_header: 指向网络层（L3）头部（如 IP 头）
+
+      - transport_header: 指向传输层（L4）头部（如 TCP/UDP 头）。
+
+      - 操作: 通过 skb_reset_mac_header、skb_set_network_header 等函数设置
+
+    **inner_transport_header、inner_network_header、inner_mac_header**
+
+      - 用途：用于隧道协议（如 VXLAN、GRE），指向内部协议头。
+
+      - 示例：inner_transport_header 指向隧道内部传输层头。
+
+
+    **protocol**
+
+      - 用途: 标识数据包的协议类型（如 ETH_P_IP 表示 IPv4 包），可以在/usr/include/linux/if_ether.h找到protocol的相关定义
+
+        ```C
+        #define ETH_P_LOOP	0x0060		/* Ethernet Loopback packet	*/
+        #define ETH_P_PUP	0x0200		/* Xerox PUP packet		*/
+        #define ETH_P_PUPAT	0x0201		/* Xerox PUP Addr Trans packet	*/
+        #define ETH_P_TSN	0x22F0		/* TSN (IEEE 1722) packet	*/
+        #define ETH_P_ERSPAN2	0x22EB		/* ERSPAN version 2 (type III)	*/
+        #define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
+        ```
+
+      - 设置时机: 由 eth_type_trans 在接收路径中根据以太网头的 type 字段设置
+
+
+    **inner_protocol、inner_ipproto**
+
+      - 用途：用于隧道协议，标识内部数据包的协议类型
+
+## 2.7 其他字段
+
+
+    
+# 3. Shared skbs and skb clones
+
+# 4. skb_shared_info介绍
+
+
+
 
 # 5. SKB数据区域相关操作
 
