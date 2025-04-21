@@ -663,15 +663,62 @@ union {
 		unsigned long	_skb_refdst;
 		void		(*destructor)(struct sk_buff *skb);
 	};
-		struct list_head	tcp_tsorted_anchor;
+	struct list_head	tcp_tsorted_anchor;
 #ifdef CONFIG_NET_SOCK_MSG
 	unsigned long		_sk_redir;
 #endif
 };
 ```
 
+1. **_skb_refdst及destructor**
 
+    - **作用**：管理路由目标和清理回调。
 
+      - `_skb_refdst`
+
+        - 存储路由目标缓存（struct dst_entry）的引用信息，用于加速路由查找。
+
+        - 通常通过原子操作管理引用计数（低位可能存储标志位，高位存储指针）。
+
+      - `destructor`
+
+        - 函数指针，指向释放 sk_buff 时调用的清理函数。
+
+        - 例如，在数据包需要释放与路由相关的资源时，执行特定的回收逻辑。
+
+    - **使用场景**：
+
+      - 当数据包需要路由处理时（如发送或转发），内核通过 skb_dst_set() 设置 _skb_refdst。
+
+      - 在释放 sk_buff 时，若设置了 destructor，则调用该函数释放额外资源。
+
+1. **tcp_tsorted_anchor**
+
+    - **作用:** 用于 TCP 协议中对乱序数据包进行排序
+    
+      - tcp_tsorted_anchor 是一个链表头，将需要按顺序重组的数据包链接起来
+
+      - 在 TCP 接收路径中，若数据包乱序到达，内核会将其暂存到排序链表中，等待缺失的报文。
+
+    - **使用场景**
+
+      - 仅在 TCP 协议处理乱序数据包时生效。
+
+      - 与 _skb_refdst 互斥：同一时刻，sk_buff 要么用于路由处理，要么用于 TCP 排序。
+
+1. **_sk_redir**
+
+    - **作用**：与 Socket 消息重定向（如 SO_INCOMING_CPU 或 eBPF 重定向）相关。
+
+      - 存储重定向目标的信息（例如目标 CPU 核心或 Socket 标识）。
+
+      - 用于优化多核环境下数据包的负载均衡或定向投递。
+
+    - **使用场景**：
+
+      - 当内核启用 CONFIG_NET_SOCK_MSG 配置时生效。
+
+      - 在数据包需要绕过默认路径，直接投递到指定 CPU 或 Socket 时使用。
 
 
 ## 2.9 skb相关标志位
@@ -714,6 +761,8 @@ union {
   ```
 
 - peeked: this packet has been seen already, so stats have been done for it, don't do them again
+
+- head_frag: 表明SKB是从page fragment分配的，而不是通过kmalloc()或vmalloc()分配的
 
 - pfmemalloc: 标记数据缓冲区是否从内存紧急分配池分配
 
@@ -1059,15 +1108,45 @@ union{
 
 ## 2.7 其他字段
 
+1. **_nfct**
+
+    ```C
+    #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+	unsigned long		 _nfct;
+    #endif
+    ```
+
+    用于保存netfilter的连接跟踪信息。
+
+
 1. **queue_mapping**
 
     对于多队列设备，用于指定当前skb数据包采用哪一个队列进行发送，或者从哪一个队列接收的。
 
-
-
-
     
 # 3. Shared skbs and skb clones
+
+## 3.1 共享skb
+
+`sk_buff.users`是一个引用计数，允许多个实体(entity)共享一个sk_buff。当`sk_buff.users != 1`时，我们称该skb为共享skb（ps： 这有点类似于C++中的shared_ptr)。
+
+下面我们分别介绍sk_buff.users的初始值、增加引用计数、减少引用计数的相关操作。
+
+
+1. **sk_buff.users初始值**
+
+    
+
+1. **skb_get()增加引用计数**
+
+
+1. **kfree_skb()减少引用计数**
+
+
+
+
+## 3.2 skb克隆
+
 
 # 4. skb_shared_info介绍
 
