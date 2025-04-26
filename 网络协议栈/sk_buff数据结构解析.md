@@ -1130,26 +1130,213 @@ union{
 
 `sk_buff.users`是一个引用计数，允许多个实体(entity)共享一个sk_buff。当`sk_buff.users != 1`时，我们称该skb为共享skb（ps： 这有点类似于C++中的shared_ptr)。
 
+>ps: 这里是共享线性buffer部分
+
 下面我们分别介绍sk_buff.users的初始值、增加引用计数、减少引用计数的相关操作。
 
 
 1. **sk_buff.users初始值**
 
-    
+    在分配skb数据结构的时候将`sk_buff.users`的值设置为了1，参看如下:
+
+    ```C
+    /**
+     * alloc_skb - allocate a network buffer
+     * @size: size to allocate
+     * @priority: allocation mask
+     *
+     * This function is a convenient wrapper around __alloc_skb().
+     */
+    static inline struct sk_buff *alloc_skb(unsigned int size,
+					gfp_t priority)
+    {
+	    return __alloc_skb(size, priority, 0, NUMA_NO_NODE);
+    }
+
+    struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+			    int flags, int node)
+    {
+        ...
+
+        memset(skb, 0, offsetof(struct sk_buff, tail));
+	    __build_skb_around(skb, data, size);
+
+        ...
+    }
+
+    /* Caller must provide SKB that is memset cleared */
+    static void __build_skb_around(struct sk_buff *skb, void *data,
+			       unsigned int frag_size)
+    {
+	    unsigned int size = frag_size;
+
+	    /* frag_size == 0 is considered deprecated now. Callers
+	     * using slab buffer should use slab_build_skb() instead.
+	     */
+	    if (WARN_ONCE(size == 0, "Use slab_build_skb() instead"))
+		    data = __slab_build_skb(skb, data, &size);
+
+	    __finalize_skb_around(skb, data, size);
+    }
+
+    static inline void __finalize_skb_around(struct sk_buff *skb, void *data,
+					 unsigned int size)
+    {
+        struct skb_shared_info *shinfo;
+        
+	    size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+        
+	    /* Assumes caller memset cleared SKB */
+	    skb->truesize = SKB_TRUESIZE(size);
+	    refcount_set(&skb->users, 1);
+
+        ...
+    }
+    ```
 
 1. **skb_get()增加引用计数**
 
+    ```C
+    /**
+     *	skb_get - reference buffer
+     *	@skb: buffer to reference
+     *
+     *	Makes another reference to a socket buffer and returns a pointer
+     *	to the buffer.
+     */
+    static inline struct sk_buff *skb_get(struct sk_buff *skb)
+    {
+	    refcount_inc(&skb->users);
+	    return skb;
+    }
+    ```
 
 1. **kfree_skb()减少引用计数**
 
+    ```C
+    /**
+     *	kfree_skb - free an sk_buff with 'NOT_SPECIFIED' reason
+     *	@skb: buffer to free
+     */
+    static inline void kfree_skb(struct sk_buff *skb)
+    {
+    	kfree_skb_reason(skb, SKB_DROP_REASON_NOT_SPECIFIED);
+    }
 
+    void __fix_address
+    kfree_skb_reason(struct sk_buff *skb, enum skb_drop_reason reason)
+    {
+	    if (__kfree_skb_reason(skb, reason))
+	    	__kfree_skb(skb);
+    }
 
+    static __always_inline
+    bool __kfree_skb_reason(struct sk_buff *skb, enum skb_drop_reason reason)
+    {
+	    if (unlikely(!skb_unref(skb)))
+		    return false;
+
+        ...
+    }
+    /**
+     * skb_unref - decrement the skb's reference count
+     * @skb: buffer
+     *
+     * Returns true if we can free the skb.
+     */
+    static inline bool skb_unref(struct sk_buff *skb)
+    {
+	    if (unlikely(!skb))
+		    return false;
+	    if (likely(refcount_read(&skb->users) == 1))
+		    smp_rmb();
+	    else if (likely(!refcount_dec_and_test(&skb->users)))
+		    return false;
+
+	    return true;
+    }
+    ```
 
 ## 3.2 skb克隆
 
+skb_clone()可以快速的复制一个skb。这里的`复制`并不会真正复制sk_buffer的data buffer部分，而仅仅是复制`struct sk_buff`的元数据结构。`&skb_shared_info.refcount`表明了指向同一个packet的skb数量。
+
+skb_clone()也会造成`sk_buff.users`的数量增加1，下来我们来看看:
+
+```C
+/*
+ * You should not add any new code to this function.  Add it to
+ * __copy_skb_header above instead.
+ */
+static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+{
+#define C(x) n->x = skb->x
+
+	n->next = n->prev = NULL;
+	n->sk = NULL;
+	__copy_skb_header(n, skb);
+
+	C(len);
+	C(data_len);
+	C(mac_len);
+	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
+	n->cloned = 1;
+	n->nohdr = 0;
+	n->peeked = 0;
+	C(pfmemalloc);
+	C(pp_recycle);
+	n->destructor = NULL;
+	C(tail);
+	C(end);
+	C(head);
+	C(head_frag);
+	C(data);
+	C(truesize);
+	refcount_set(&n->users, 1);
+
+	atomic_inc(&(skb_shinfo(skb)->dataref));
+	skb->cloned = 1;
+
+	return n;
+#undef C
+}
+```
 
 # 4. skb_shared_info介绍
 
+skb_shared_info部分保存着一个packet的分片信息。下面我们来看看该数据结构:
+
+```C
+/* This data is invariant across clones and lives at
+ * the end of the header data, ie. at skb->end.
+ */
+struct skb_shared_info {
+	__u8		flags;
+	__u8		meta_len;
+	__u8		nr_frags;
+	__u8		tx_flags;
+	unsigned short	gso_size;
+	/* Warning: this field is not always filled in (UFO)! */
+	unsigned short	gso_segs;
+	struct sk_buff	*frag_list;
+	struct skb_shared_hwtstamps hwtstamps;
+	unsigned int	gso_type;
+	u32		tskey;
+
+	/*
+	 * Warning : all fields before dataref are cleared in __alloc_skb()
+	 */
+	atomic_t	dataref;
+	unsigned int	xdp_frags_size;
+
+	/* Intermediate layers must ensure that destructor_arg
+	 * remains valid until skb destructor */
+	void *		destructor_arg;
+
+	/* must be last field, see pskb_expand_head() */
+	skb_frag_t	frags[MAX_SKB_FRAGS];
+};
+```
 
 
 
