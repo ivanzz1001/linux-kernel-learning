@@ -579,7 +579,7 @@ struct sk_buff_head {
 
     - 用途：记录 sk_buff 结构体及其数据缓冲区的总内存大小
 
-    - 计算方式: `truesize = sizeof(struct sk_buff) + (end - head)`。
+    - 计算方式: `truesize = sizeof(struct sk_buff) + (end - head) + sizeof(struct skb_shared_info) + data_len`。
 
     关于socket buffer统计，更多详细信息可以参看[SKB socket accounting](http://oldvger.kernel.org/~davem/skb_sk.html)
 
@@ -593,9 +593,16 @@ struct sk_buff_head {
 
 1. **len和data_len**
 
-    - len: 总数据长度（包括线性数据`data`和非线性分片`frags`）
+    这里要声明两个概念的区别，后续直接用这两个概念，注意区分：
+      - 线性数据：`head - end`。
 
-    - data_len: 仅包含非线性分片数据的长度（如通过 skb_shinfo(skb)->frags 管理的分页数据）
+      - 实际线性数据：`data - tail`，不包含线性数据中的头空间和尾空间。
+
+    接下来我们来看`len`和`data_len`两个变量:
+
+      - len: skb中的数据块的总长度，数据块包括实际线性数据和非线性数据，非线性数据为data_len，所以skb->len= (data - tail) + data_len。
+
+      - data_len: 仅包含非线性分片数据的长度（如通过 skb_shinfo(skb)->frags 管理的分页数据）
 
 
     因此`(len - data_len)`即为位于线性buffer 的数据大小，skb_headlen() 函数用于计算这个值：
