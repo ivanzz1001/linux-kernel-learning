@@ -20,6 +20,8 @@
 
 - [linux内核TCP/IP源码浅析](https://blog.csdn.net/weixin_40355471/article/details/131535653)
 
+- [核心数据结构sk_buff](https://void-star.icu/archives/939)
+
 为使在阅读过程中对`sk_buff`能有一个全局的视角，这里我们先贴出该结构的完整定义，然后再逐步来进行分析:
 
 ```C
@@ -1344,7 +1346,9 @@ struct skb_shared_info {
 
 - [Linux sk_buff结构](https://www.cnblogs.com/ink-white/p/16814624.html)
 
+- [struct sk_buff](https://lishiwen4.github.io/network/sk_buff)
 
+- [skbuff pdf](https://people.computing.clemson.edu/~westall/853/notes/skbuff.pdf)
 
 # 5. SKB数据区域相关操作
 
