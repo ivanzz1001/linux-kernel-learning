@@ -1338,6 +1338,12 @@ struct skb_shared_info {
 };
 ```
 
+参看如下文章:
+
+- [内核 skb/sk_buff 详解](https://zhuanlan.zhihu.com/p/626514905)
+
+- [Linux sk_buff结构](https://www.cnblogs.com/ink-white/p/16814624.html)
+
 
 
 # 5. SKB数据区域相关操作
