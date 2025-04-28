@@ -1357,6 +1357,11 @@ struct skb_shared_info {
 
 - [skbuff pdf](https://people.computing.clemson.edu/~westall/853/notes/skbuff.pdf)
 
+## 4.1 关键字段解析
+
+
+  
+
 # 5. SKB数据区域相关操作
 
 skb数据区域的相关操作参看: http://oldvger.kernel.org/~davem/skb_data.html
