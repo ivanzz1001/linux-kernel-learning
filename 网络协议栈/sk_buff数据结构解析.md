@@ -1347,6 +1347,16 @@ struct skb_shared_info {
 };
 ```
 
+skb_shared_info 是 Linux 内核网络协议栈中高效管理数据包分片、硬件卸载及共享内存的核心结构体，其设计充分考虑了性能与灵活性，广泛应用于以下场景：
+
+- 分片处理（IP 分片、Scatter-Gather DMA）。
+
+- 硬件加速（GSO、GRO、校验和卸载）。
+
+- 零拷贝传输（XDP、用户态协议栈）。
+
+- 时间戳与同步（PTP 等精密时钟协议）。
+
 参看如下文章:
 
 - [内核 skb/sk_buff 详解](https://zhuanlan.zhihu.com/p/626514905)
