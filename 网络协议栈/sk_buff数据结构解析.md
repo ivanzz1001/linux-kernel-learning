@@ -1270,7 +1270,7 @@ union{
 
 skb_clone()可以快速的复制一个skb。这里的`复制`并不会真正复制sk_buffer的data buffer部分，而仅仅是复制`struct sk_buff`的元数据结构。`&skb_shared_info.refcount`表明了指向同一个packet的skb数量。
 
-skb_clone()也会造成`sk_buff.users`的数量增加1，下来我们来看看:
+skb_clone()会将`sk_buff.users`的值设置为1，同时累加`skb_shared_info.dataref`，下面我们来看看:
 
 ```C
 /*
@@ -1313,7 +1313,7 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
 
 # 4. skb_shared_info介绍
 
-skb_shared_info部分保存着一个packet的分片信息。下面我们来看看该数据结构:
+`skb_shared_info`定义在include/linux/skbuff.h中，用于:manage fragmented buffers and unmapped page buffers。下面我们来看看该数据结构:
 
 ```C
 /* This data is invariant across clones and lives at
@@ -1346,8 +1346,6 @@ struct skb_shared_info {
 	skb_frag_t	frags[MAX_SKB_FRAGS];
 };
 ```
-
-
 
 参看如下文章:
 
