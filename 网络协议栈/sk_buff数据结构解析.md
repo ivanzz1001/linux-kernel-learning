@@ -1359,6 +1359,13 @@ struct skb_shared_info {
 
 ## 4.1 关键字段解析
 
+1. dataref
+
+   sk_buff data部分的引用计数。当对一个sk_buff进行clone操作时，header部分会被copy，但是data部分是共享的，因此cloning会增加`dataref`(而不是增加`users`)
+
+1. frag_list
+
+   假如本字段不为NULL的话，指向下一个sk_buff。
 
   
 
