@@ -1365,8 +1365,55 @@ struct skb_shared_info {
 
 1. frag_list
 
-   假如本字段不为NULL的话，指向下一个sk_buff。
+   假如本字段不为NULL的话，指向链中的下一个sk_buff。正在重组的IP数据包分片通过此指针连接成链。这是 IP 重组机制中，用来存储后续片段（frag_list 是链表的一部分）
 
+1. frags
+
+   指向未映射的page buffer的数组。
+
+1. flags
+
+   标志字段，用于存储一些标志位。例如，是否需要校验等信息
+
+1. meta_len
+
+   与 XDP（eXpress Data Path）相关的元数据长度。
+
+1. nr_flags
+
+   数组`frags`的大小
+
+1. tx_flags
+
+   传输相关的标志位，用于控制如 TSO（TCP Segmentation Offload）或校验等行为
+
+1. gso_size
+
+   如果使用GSO(generic-segmentation-offload)，这是每个分段的大小。
+
+1. gso_segs
+
+   分段总数。注意：该字段不总是被填写（如 UFO 时）
+
+1. hwtstamps
+
+   硬件时间戳，用于精确测量包的发送或接收时间
+
+1. gso_type
+
+   GSO 的类型，比如`TSO`、`UFO`、`GSO_UDP`等
+
+1. tskey
+
+   时间戳键，用于排序或同步
+
+1. xdp_frags_size
+
+   XDP 使用时，页片段的总大小
+
+1. destructor_arg
+
+   中间层用于传递给释放函数的参数。需要确保在 skb 被销毁前此指针有效。
   
 
 # 5. SKB数据区域相关操作
