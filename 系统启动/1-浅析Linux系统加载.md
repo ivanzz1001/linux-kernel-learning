@@ -21,7 +21,7 @@
 
 ## 2.1 基本定义
 
-1. **BIOS(Basic Input/Output System)**
+- **BIOS(Basic Input/Output System)**
 
     - 启动方式：传统启动（Legacy Boot）
   
@@ -37,5 +37,5 @@
   
     - 安全特性：基本无
 
-2. **UEFI(Unified Extensible Firmware Interface)**
+- **UEFI(Unified Extensible Firmware Interface)**
 
