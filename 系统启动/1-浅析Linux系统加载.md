@@ -39,3 +39,12 @@
 
 - **UEFI(Unified Extensible Firmware Interface)**
 
+    - 启动方式：支持现代启动（UEFI Boot）
+ 
+    - 引导位置：GPT（GUID 分区表）
+
+    - 用户界面：图形界面，支持鼠标
+ 
+    - 硬盘支持：支持超过 2 TB 和 128+ 分区
+ 
+    - 执行文件: `.efi` 可执行文件（如`grubx64.efi`）
