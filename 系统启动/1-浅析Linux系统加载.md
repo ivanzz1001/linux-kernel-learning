@@ -21,13 +21,21 @@
 
 ### 2.1 基本定义
 
-**1. BIOS(Basic Input/Output System)**
+1. **BIOS(Basic Input/Output System)**
 
-**2. UEFI(Unified Extensible Firmware Interface)**
+    - 启动方式：传统启动（Legacy Boot）
+  
+    - 引导位置：MBR（主引导记录）
+  
+    - 用户界面：文字界面，键盘操作
+  
+    - 硬盘支持：最大支持 2 TB，最多 4 个主分区
+  
+    - 执行文件：bootloader（如 GRUB）
+  
+    - 启动速度：较慢
+  
+    - 安全特性：基本无
 
+2. **UEFI(Unified Extensible Firmware Interface)**
 
-1. **BIOS (Basic Input/Output System)**
-
-    - 启动方式:
-
-2. **UEFI (Unified Extensible Firmware Interface)**
