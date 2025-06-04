@@ -84,3 +84,27 @@ BIOS	    MBR                          启动记录写在磁盘开头的 MBR 中
 
 UEFI	GPT + EFI 系统分区（ESP           .efi 文件位于 EFI/ 路径中（通常是 FAT32）
 ```
+
+## 2.4 如何判断系统是 BIOS 还是 UEFI？
+
+1. 在Linux系统中
+
+  ```bash
+  # [ -d /sys/firmware/efi ] && echo "UEFI" || echo "BIOS"
+  ```
+
+2. 在 Windows 系统中
+
+    - `msinfo32` 命令查看“BIOS 模式”：显示为“UEFI”或“Legacy”
+
+## 2.4 常见用途对比
+
+```text
+| 功能/特性         | BIOS  | UEFI                        |
+| ------------- | ----- | --------------------------- |
+| 安装 Windows 11 | ❌     | ✅ （必须启用 UEFI + Secure Boot） |
+| 多系统启动         | 较麻烦   | 易管理，支持 EFI Boot Manager     |
+| 自动修复启动        | 不支持   | 支持 EFI Shell、备份启动项          |
+| 启动自定义工具       | 需特殊处理 | 可直接引导 EFI 工具（如 `rEFInd`）    |
+
+```
