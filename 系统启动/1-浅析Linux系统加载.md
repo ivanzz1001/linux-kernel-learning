@@ -21,7 +21,12 @@
 
 ### 2.1 基本定义
 
-1. BIOS (Basic Input/Output System)
+**1. BIOS(Basic Input/Output System)**
+
+**2. UEFI(Unified Extensible Firmware Interface)**
+
+
+1. **BIOS (Basic Input/Output System)**
 
     - 启动方式:
 
