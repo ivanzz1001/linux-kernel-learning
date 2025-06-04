@@ -97,7 +97,7 @@ UEFI	GPT + EFI 系统分区（ESP           .efi 文件位于 EFI/ 路径中（�
 
     - `msinfo32` 命令查看“BIOS 模式”：显示为“UEFI”或“Legacy”
 
-## 2.4 常见用途对比
+## 2.5 常见用途对比
 
 
 | 功能/特性         | BIOS  | UEFI                                    |
@@ -108,3 +108,8 @@ UEFI	GPT + EFI 系统分区（ESP           .efi 文件位于 EFI/ 路径中（�
 | 启动自定义工具      | 需特殊处理 | 可直接引导 EFI 工具（如 `rEFInd`）      |
 
 
+## 2.6 总结
+
+- 对于10年前旧设备：推荐BIOS 启动
+
+- 对于新设备、Win11、Linux 现代发行版： 推荐UEFI 启动（配 GPT)
