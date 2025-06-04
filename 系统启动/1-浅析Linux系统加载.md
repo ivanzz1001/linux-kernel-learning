@@ -18,3 +18,11 @@
 ## 2. BIOS与UEFI对比
 
 `BIOS`和`UEFI`是两种用于初始化硬件并引导操作系统的固件接口。它们运行在主板的芯片上，是操作系统启动前最先执行的软件。
+
+### 2.1 基本定义
+
+1. **BIOS (Basic Input/Output System)**
+
+  - 启动方式:
+
+2. **UEFI (Unified Extensible Firmware Interface)**
